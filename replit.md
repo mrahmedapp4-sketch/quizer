@@ -43,6 +43,14 @@ npm start      # runs production build
 - **Build**: `npm run build`
 - **Run**: `node dist/index.js`
 
+### Railway
+
+- **Build**: `npm install && npm run build` (Railway/Nixpacks detects this from `package.json`)
+- **Start**: `node dist/index.js`
+- **Health check**: `/api/health`
+- **Required variable**: `SESSION_SECRET`
+- **Optional variables**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALLBACK_URL`
+
 ## Key Features
 
 - Real-time quiz state via WebSockets
