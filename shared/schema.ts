@@ -17,6 +17,9 @@ export const students = pgTable("students", {
   consecutiveCorrect: integer("consecutive_correct").default(0).notNull(),
   totalAnswers: integer("total_answers").default(0).notNull(),
   correctAnswersCount: integer("correct_answers_count").default(0).notNull(),
+  createdAt: text("created_at"),
+  updatedAt: text("updated_at"),
+  archivedAt: text("archived_at"),
 });
 
 export const insertStudentSchema = createInsertSchema(students).pick({

@@ -40,8 +40,12 @@ export class MemStorage implements IStorage {
       isCorrect?: boolean | null;
       responseTime?: string | null;
       passwordHash?: string | null;
+      createdAt?: string | null;
+      updatedAt?: string | null;
+      archivedAt?: string | null;
     };
     const id = this.currentId++;
+    const now = new Date().toISOString();
     const student: Student = { 
       ...source, 
       id, 
@@ -58,6 +62,9 @@ export class MemStorage implements IStorage {
       consecutiveCorrect: 0,
       totalAnswers: 0,
       correctAnswersCount: 0,
+      createdAt: source.createdAt ?? now,
+      updatedAt: source.updatedAt ?? now,
+      archivedAt: source.archivedAt ?? null,
     };
     this.students.set(id, student);
     this.persistStudents();
@@ -65,7 +72,9 @@ export class MemStorage implements IStorage {
   }
 
   async getStudents(): Promise<Student[]> {
-    return Array.from(this.students.values()).sort((a, b) => a.id - b.id);
+    return Array.from(this.students.values())
+      .filter((student) => !student.archivedAt)
+      .sort((a, b) => a.id - b.id);
   }
 
   async getStudent(id: number): Promise<Student | undefined> {
@@ -73,18 +82,18 @@ export class MemStorage implements IStorage {
   }
 
   async getStudentByEmail(email: string): Promise<Student | undefined> {
-    return Array.from(this.students.values()).find(s => s.email?.toLowerCase() === email.toLowerCase());
+    return Array.from(this.students.values()).find(s => !s.archivedAt && s.email?.toLowerCase() === email.toLowerCase());
   }
 
   async getStudentByUsername(username: string): Promise<Student | undefined> {
     const normalized = username.trim().toLowerCase();
-    return Array.from(this.students.values()).find(s => s.username?.toLowerCase() === normalized);
+    return Array.from(this.students.values()).find(s => !s.archivedAt && s.username?.toLowerCase() === normalized);
   }
 
   async updateStudentScore(id: number, score: number): Promise<Student> {
     const student = this.students.get(id);
     if (!student) throw new Error("Student not found");
-    const updated = { ...student, score };
+    const updated = { ...student, score, updatedAt: new Date().toISOString() };
     this.students.set(id, updated);
     this.persistStudents();
     return updated;
@@ -118,6 +127,7 @@ export class MemStorage implements IStorage {
       consecutiveCorrect: consecutive,
       totalAnswers: newTotal,
       correctAnswersCount: newCorrectCount,
+      updatedAt: new Date().toISOString(),
     };
     this.students.set(id, updated);
     this.persistStudents();
@@ -126,6 +136,7 @@ export class MemStorage implements IStorage {
 
   async resetAllStudents(): Promise<void> {
     for (const [id, student] of this.students.entries()) {
+      if (student.archivedAt) continue;
       this.students.set(id, { 
         ...student, 
         score: 0, 
@@ -135,6 +146,7 @@ export class MemStorage implements IStorage {
         consecutiveCorrect: 0,
         totalAnswers: 0,
         correctAnswersCount: 0,
+        updatedAt: new Date().toISOString(),
       });
     }
     this.persistStudents();
@@ -142,6 +154,7 @@ export class MemStorage implements IStorage {
 
   async clearAnswersOnly(): Promise<void> {
     for (const [id, student] of this.students.entries()) {
+      if (student.archivedAt) continue;
       this.students.set(id, { 
         ...student, 
         lastAnswer: null, 
@@ -154,13 +167,20 @@ export class MemStorage implements IStorage {
   }
 
   async deleteStudent(id: number): Promise<void> {
-    this.students.delete(id);
+    const student = this.students.get(id);
+    if (!student) return;
+    const archivedAt = student.archivedAt ?? new Date().toISOString();
+    this.students.set(id, { ...student, archivedAt, updatedAt: archivedAt });
     this.persistStudents();
   }
 
   async deleteAllStudents(): Promise<void> {
-    this.students.clear();
-    this.photos.clear();
+    const archivedAt = new Date().toISOString();
+    for (const [id, student] of this.students.entries()) {
+      if (!student.archivedAt) {
+        this.students.set(id, { ...student, archivedAt, updatedAt: archivedAt });
+      }
+    }
     this.persistStudents();
   }
 
@@ -200,6 +220,9 @@ export class MemStorage implements IStorage {
           consecutiveCorrect: student.consecutiveCorrect ?? 0,
           totalAnswers: student.totalAnswers ?? 0,
           correctAnswersCount: student.correctAnswersCount ?? 0,
+          createdAt: (student as any).createdAt ?? null,
+          updatedAt: (student as any).updatedAt ?? (student as any).createdAt ?? null,
+          archivedAt: (student as any).archivedAt ?? null,
         });
       }
       const ids = Array.from(this.students.keys());

@@ -372,7 +372,7 @@ export async function registerRoutes(
     const studentId = getStudentIdFromRequest(req);
     if (!studentId) return res.status(401).json({ message: "يجب تسجيل الدخول" });
     const student = await storage.getStudent(studentId);
-    if (!student) {
+    if (!student || student.archivedAt) {
       forgetStudent(res);
       return res.status(401).json({ message: "الحساب غير موجود" });
     }
@@ -391,7 +391,7 @@ export async function registerRoutes(
     const id = parseInt(req.params.id);
     const { points } = req.body;
     const student = await storage.getStudent(id);
-    if (!student) return res.status(404).json({ message: "Student not found" });
+    if (!student || student.archivedAt) return res.status(404).json({ message: "Student not found" });
     
     const newScore = student.score + (parseInt(points) || 0);
     await storage.updateStudentScore(id, newScore);
@@ -519,7 +519,7 @@ export async function registerRoutes(
     const studentId = parseInt(studentIdStr as string);
     
     const student = await storage.getStudent(studentId);
-    if (!student) return res.status(404).json({ message: "Student not found" });
+    if (!student || student.archivedAt) return res.status(404).json({ message: "Student not found" });
 
     // Calculate final response time based on teacher setting the answer
     const serverEndTime = Date.now();

@@ -122,7 +122,7 @@ export default function HostDashboard() {
       iconBg: "bg-blue-500/20",
     },
     {
-      label: "حذف كل الطلاب",
+      label: "إخفاء كل الطلاب",
       sublabel: "مرة ضغط المدرس",
       value: counters.deleteAllCount,
       icon: Trash2,

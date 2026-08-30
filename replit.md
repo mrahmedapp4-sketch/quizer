@@ -9,7 +9,7 @@ A real-time, interactive quiz application designed for classroom use. Teachers h
 - **Build Tool**: Vite (frontend dev server integrated into Express)
 - **Package Manager**: npm
 - **Language**: TypeScript (both client and server)
-- **Storage**: File-backed student accounts and points in `/data/students.json`, plus JSON session counters
+- **Storage**: File-backed student accounts and points in `/data/students.json`, plus JSON session counters. Student removal is a soft archive: the record, points, and account statistics remain stored while archived students disappear from the teacher/host active list.
 - **ORM**: Drizzle ORM (configured for PostgreSQL but defaults to memory/file storage)
 
 ## Project Structure
@@ -63,6 +63,6 @@ npm start      # runs production build
 ## Notes
 
 - The app uses in-memory storage (not a real database) for quiz state
-- Student accounts, grades, and points persist across restarts in `data/students.json`. A signed HttpOnly browser cookie keeps each device signed in for 30 days.
+- Student accounts, grades, points, account statistics, and update timestamps persist across restarts in `data/students.json`. Teacher removal archives the record with `archivedAt` instead of deleting it; archived accounts are not shown in active lists and cannot sign in. A signed HttpOnly browser cookie keeps each device signed in for 30 days.
 - Google OAuth requires `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` env vars (optional for basic use)
 - `SESSION_SECRET` env var should be set in production

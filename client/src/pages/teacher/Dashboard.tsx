@@ -253,7 +253,7 @@ export default function TeacherDashboard() {
               </button>
               <button
                 onClick={() => {
-                  if(confirm("هل أنت متأكد من حذف جميع الطلاب؟")) {
+                  if(confirm("هل أنت متأكد من إخفاء جميع الطلاب؟ ستظل حساباتهم ونقاطهم محفوظة في قاعدة البيانات.")) {
                     apiRequest("DELETE", "/api/students")
                       .then(() => refetch());
                   }
@@ -261,7 +261,7 @@ export default function TeacherDashboard() {
                 className="px-6 py-3 rounded-xl font-bold bg-red-100 text-red-700 hover:bg-red-200 border-b-4 border-red-200 flex items-center gap-2 transition-all shadow-md active:translate-y-0.5"
               >
                 <Trash2 className="w-5 h-5" />
-                حذف كل الطلاب
+                إخفاء كل الطلاب
               </button>
               </div>
 
@@ -611,7 +611,7 @@ export default function TeacherDashboard() {
                       <th className="p-3 text-gray-400">النتيجة</th>
                       {showAccuracy && <th className="p-3 text-gray-400 text-center">الدقة</th>}
                       <th className="p-3 text-gray-400 text-center">النقاط</th>
-                      <th className="p-3 text-gray-400 text-center">حذف</th>
+                      <th className="p-3 text-gray-400 text-center">إخفاء</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -680,13 +680,13 @@ export default function TeacherDashboard() {
                         <td className="p-3 text-center">
                           <button
                             onClick={() => {
-                              if(confirm(`هل أنت متأكد من حذف الطالب ${student.name}؟`)) {
+                              if(confirm(`هل أنت متأكد من إخفاء الطالب ${student.name}؟ سيظل حسابه ونقاطه محفوظين.`)) {
                                 apiRequest("DELETE", `/api/students/${student.id}`)
                                   .then(() => refetch());
                               }
                             }}
                             className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                            title="حذف الطالب"
+                            title="إخفاء الطالب مع الاحتفاظ ببياناته"
                           >
                             <Trash2 className="w-5 h-5" />
                           </button>
