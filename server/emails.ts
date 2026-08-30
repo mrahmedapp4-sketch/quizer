@@ -1,7 +1,8 @@
 import fs from "fs";
 import path from "path";
+import { DATA_DIR } from "./data-dir";
 
-const EMAILS_FILE = path.resolve("data/emails.json");
+const EMAILS_FILE = path.join(DATA_DIR, "emails.json");
 
 export interface SavedEmail {
   email: string;

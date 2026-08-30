@@ -66,3 +66,11 @@ pnpm start      # runs production build
 - Student accounts, grades, points, account statistics, and update timestamps persist across restarts in `data/students.json`. Teacher removal archives the record with `archivedAt` instead of deleting it; archived accounts are not shown in active lists and cannot sign in. A signed HttpOnly browser cookie keeps each device signed in for 30 days.
 - Google OAuth requires `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` env vars (optional for basic use)
 - `SESSION_SECRET` env var should be set in production
+
+## Monitor database management
+
+- Open `/teacher/login` and sign in with the monitor passcode to use the database management panel.
+- The panel lists active and archived students and supports searching by student name, username, or email.
+- The monitor can add one point, archive an active account, or set a new password. Passwords are stored as hashes and are never displayed.
+- **تنظيف قاعدة البيانات** permanently removes all student records, photos, saved email history, and resets counters. It requires typing `حذف الكل` to confirm.
+- Data files use `/appdata` automatically when that volume exists. For another mounted location, set `APP_DATA_DIR`; otherwise development falls back to the repository `data/` directory.

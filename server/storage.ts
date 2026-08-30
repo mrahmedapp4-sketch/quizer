@@ -1,20 +1,25 @@
 import { students, type Student, type InsertStudent } from "@shared/schema";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { DATA_DIR } from "./data-dir";
 
 export interface IStorage {
   createStudent(student: InsertStudent): Promise<Student>;
   getStudents(): Promise<Student[]>;
+  getAllStudents(): Promise<Student[]>;
   getStudent(id: number): Promise<Student | undefined>;
   getStudentByEmail?(email: string): Promise<Student | undefined>;
   getStudentByUsername?(username: string): Promise<Student | undefined>;
   updateStudentScore(id: number, score: number): Promise<Student>;
+  updateStudentPassword(id: number, passwordHash: string): Promise<Student>;
   updateStudentAnswer(id: number, answer: string, isCorrect: boolean, responseTime?: string, isRetry?: boolean): Promise<Student>;
   updateStudentAnswerWithStreak(id: number, answer: string, isCorrect: boolean, responseTime?: string, isRetry?: boolean, newConsecutive?: number): Promise<Student>;
   resetAllStudents(): Promise<void>;
   clearAnswersOnly(): Promise<void>;
   deleteStudent(id: number): Promise<void>;
   deleteAllStudents(): Promise<void>;
+  deleteStudentPermanently(id: number): Promise<void>;
+  deleteAllStudentsPermanently(): Promise<void>;
   setStudentPhoto(id: number, photo: string): Promise<void>;
   getStudentPhoto(id: number): Promise<string | undefined>;
   getAllPhotos(): Promise<Record<number, string>>;
@@ -24,7 +29,7 @@ export class MemStorage implements IStorage {
   private students: Map<number, Student>;
   private photos: Map<number, string>;
   private currentId: number;
-  private readonly studentsFile = join(process.cwd(), "data", "students.json");
+  private readonly studentsFile = join(DATA_DIR, "students.json");
 
   constructor() {
     this.students = new Map();
@@ -72,9 +77,11 @@ export class MemStorage implements IStorage {
   }
 
   async getStudents(): Promise<Student[]> {
-    return Array.from(this.students.values())
-      .filter((student) => !student.archivedAt)
-      .sort((a, b) => a.id - b.id);
+    return (await this.getAllStudents()).filter((student) => !student.archivedAt);
+  }
+
+  async getAllStudents(): Promise<Student[]> {
+    return Array.from(this.students.values()).sort((a, b) => a.id - b.id);
   }
 
   async getStudent(id: number): Promise<Student | undefined> {
@@ -94,6 +101,15 @@ export class MemStorage implements IStorage {
     const student = this.students.get(id);
     if (!student) throw new Error("Student not found");
     const updated = { ...student, score, updatedAt: new Date().toISOString() };
+    this.students.set(id, updated);
+    this.persistStudents();
+    return updated;
+  }
+
+  async updateStudentPassword(id: number, passwordHash: string): Promise<Student> {
+    const student = this.students.get(id);
+    if (!student) throw new Error("Student not found");
+    const updated = { ...student, passwordHash, updatedAt: new Date().toISOString() };
     this.students.set(id, updated);
     this.persistStudents();
     return updated;
@@ -181,6 +197,19 @@ export class MemStorage implements IStorage {
         this.students.set(id, { ...student, archivedAt, updatedAt: archivedAt });
       }
     }
+    this.persistStudents();
+  }
+
+  async deleteStudentPermanently(id: number): Promise<void> {
+    this.students.delete(id);
+    this.photos.delete(id);
+    this.persistStudents();
+  }
+
+  async deleteAllStudentsPermanently(): Promise<void> {
+    this.students.clear();
+    this.photos.clear();
+    this.currentId = 1;
     this.persistStudents();
   }
 

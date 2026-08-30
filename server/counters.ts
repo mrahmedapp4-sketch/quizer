@@ -1,7 +1,8 @@
 import fs from "fs";
 import path from "path";
+import { DATA_DIR } from "./data-dir";
 
-const COUNTERS_FILE = path.resolve("data/counters.json");
+const COUNTERS_FILE = path.join(DATA_DIR, "counters.json");
 
 export interface SessionCounters {
   joinCount: number;

@@ -128,6 +128,11 @@ function forgetStudent(res: any) {
   res.setHeader("Set-Cookie", `${STUDENT_AUTH_COOKIE}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax`);
 }
 
+function requireTeacher(req: any, res: any, next: any) {
+  if (req.session?.teacherAuthenticated === true) return next();
+  return res.status(401).json({ message: "يجب تسجيل دخول المراقب" });
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -194,13 +199,23 @@ export async function registerRoutes(
   app.post(api.teacher.login.path, (req, res) => {
     const { password } = req.body;
     if (password === TEACHER_PASSWORD) {
+      (req.session as any).teacherAuthenticated = true;
       res.json({ success: true });
     } else {
       res.status(401).json({ message: "Invalid password" });
     }
   });
 
-  app.post(api.teacher.setAnswer.path, async (req, res) => {
+  app.get("/api/teacher/session", requireTeacher, (_req, res) => {
+    res.json({ authenticated: true });
+  });
+
+  app.post("/api/teacher/logout", requireTeacher, (req, res) => {
+    (req.session as any).teacherAuthenticated = false;
+    res.json({ success: true });
+  });
+
+  app.post(api.teacher.setAnswer.path, requireTeacher, async (req, res) => {
     const { answer, customChoices } = req.body;
     quizState.correctAnswer = answer;
     quizState.customChoices = customChoices || null;
@@ -227,14 +242,14 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  app.post(api.teacher.toggleAccepting.path, (req, res) => {
+  app.post(api.teacher.toggleAccepting.path, requireTeacher, (req, res) => {
     const { accepting } = req.body;
     quizState.isAcceptingAnswers = accepting;
     broadcastState();
     res.json({ success: true });
   });
 
-  app.post("/api/teacher/reset", async (req, res) => {
+  app.post("/api/teacher/reset", requireTeacher, async (req, res) => {
     // Reset student answers but keep scores
     await storage.clearAnswersOnly(); // This clears only lastAnswer and isCorrect
     sessionCounters.nextQuestionCount++;
@@ -247,7 +262,7 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  app.post("/api/teacher/reset-points", async (req, res) => {
+  app.post("/api/teacher/reset-points", requireTeacher, async (req, res) => {
     await storage.resetAllStudents();
     quizState.correctAnswer = null;
     quizState.customChoices = null;
@@ -257,14 +272,14 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  app.post("/api/teacher/toggle-accuracy", (req, res) => {
+  app.post("/api/teacher/toggle-accuracy", requireTeacher, (req, res) => {
     const { show } = req.body;
     quizState.showAccuracy = typeof show === "boolean" ? show : !quizState.showAccuracy;
     broadcastState();
     res.json({ success: true, showAccuracy: quizState.showAccuracy });
   });
 
-  app.delete("/api/students/:id", async (req, res) => {
+  app.delete("/api/students/:id", requireTeacher, async (req, res) => {
     const id = parseInt(req.params.id);
     const student = await storage.getStudent(id);
     if (student) {
@@ -284,7 +299,7 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  app.delete("/api/students", async (req, res) => {
+  app.delete("/api/students", requireTeacher, async (req, res) => {
     // Reset all scores before deleting
     // await storage.resetAllStudents();
     await storage.deleteAllStudents();
@@ -387,7 +402,7 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  app.post("/api/students/:id/points", async (req, res) => {
+  app.post("/api/students/:id/points", requireTeacher, async (req, res) => {
     const id = parseInt(req.params.id);
     const { points } = req.body;
     const student = await storage.getStudent(id);
@@ -397,6 +412,59 @@ export async function registerRoutes(
     await storage.updateStudentScore(id, newScore);
     broadcastState();
     res.json({ success: true, newScore });
+  });
+
+  // Monitor-only database management. Passwords are never returned: only the
+  // password hash is stored, and a monitor can set a new password instead.
+  app.get("/api/teacher/students", requireTeacher, async (_req, res) => {
+    const allStudents = await storage.getAllStudents();
+    res.json(allStudents.map(publicStudent));
+  });
+
+  app.post("/api/teacher/students/:id/points", requireTeacher, async (req, res) => {
+    const id = Number.parseInt(req.params.id, 10);
+    const points = Number.parseInt(String(req.body?.points ?? ""), 10);
+    if (!Number.isInteger(id) || !Number.isInteger(points) || points === 0 || Math.abs(points) > 10000) {
+      return res.status(400).json({ message: "أدخل عدد نقاط صحيح بين -10000 و10000" });
+    }
+    const student = await storage.getStudent(id);
+    if (!student || student.archivedAt) return res.status(404).json({ message: "الطالب غير موجود أو مؤرشف" });
+    const updated = await storage.updateStudentScore(id, student.score + points);
+    broadcastState();
+    res.json({ success: true, student: publicStudent(updated) });
+  });
+
+  app.post("/api/teacher/students/:id/password", requireTeacher, async (req, res) => {
+    const id = Number.parseInt(req.params.id, 10);
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
+    if (password.length < 6 || password.length > 100) {
+      return res.status(400).json({ message: "كلمة المرور يجب أن تكون من 6 إلى 100 حرف" });
+    }
+    const student = await storage.getStudent(id);
+    if (!student || student.archivedAt) return res.status(404).json({ message: "الطالب غير موجود أو مؤرشف" });
+    const updated = await storage.updateStudentPassword(id, hashPassword(password));
+    res.json({ success: true, student: publicStudent(updated) });
+  });
+
+  app.delete("/api/teacher/reset-database", requireTeacher, async (_req, res) => {
+    await storage.deleteAllStudentsPermanently();
+    savedEmails = [];
+    saveEmails(savedEmails);
+    sessionCounters.joinCount = 0;
+    sessionCounters.deleteAllCount = 0;
+    sessionCounters.nextQuestionCount = 0;
+    saveCounters(sessionCounters);
+    quizState.correctAnswer = null;
+    quizState.customChoices = null;
+    quizState.isAcceptingAnswers = true;
+    quizState.answerStartTime = 0;
+
+    const kickAllMessage = JSON.stringify({ type: "KICK_ALL", payload: {} });
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) client.send(kickAllMessage);
+    });
+    broadcastState();
+    res.json({ success: true });
   });
 
   // Student APIs
