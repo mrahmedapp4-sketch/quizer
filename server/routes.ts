@@ -205,7 +205,13 @@ export async function registerRoutes(
   app.post("/api/host/login", (req, res) => {
     if (req.body?.password === HOST_PASSWORD) {
       (req.session as any).hostAuthenticated = true;
-      return res.json({ success: true });
+      return req.session.save((error) => {
+        if (error) {
+          console.error("[Host Auth] Failed to save session:", error);
+          return res.status(500).json({ message: "تعذر حفظ جلسة المضيف" });
+        }
+        return res.json({ success: true });
+      });
     }
     return res.status(401).json({ message: "كلمة مرور المضيف غير صحيحة" });
   });
@@ -224,7 +230,13 @@ export async function registerRoutes(
     const { password } = req.body;
     if (password === TEACHER_PASSWORD) {
       (req.session as any).teacherAuthenticated = true;
-      res.json({ success: true });
+      req.session.save((error) => {
+        if (error) {
+          console.error("[Teacher Auth] Failed to save session:", error);
+          return res.status(500).json({ message: "تعذر حفظ جلسة المدرس" });
+        }
+        return res.json({ success: true });
+      });
     } else {
       res.status(401).json({ message: "Invalid password" });
     }

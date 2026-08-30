@@ -37,6 +37,7 @@ export default function HostDashboard() {
   const { data: initialStudents } = useStudentsList();
   const [, setLocation] = useLocation();
 
+  const [authChecking, setAuthChecking] = useState(true);
   const [students, setStudents] = useState<Student[]>([]);
   const [isAccepting, setIsAccepting] = useState(false);
   const [correctAnswer, setCorrectAnswer] = useState<string | null>(null);
@@ -49,11 +50,19 @@ export default function HostDashboard() {
   });
 
   useEffect(() => {
+    let active = true;
     fetch("/api/host/session", { credentials: "include" })
       .then((response) => {
-        if (!response.ok) setLocation("/host/login");
+        if (!response.ok) {
+          setLocation("/host/login");
+          return;
+        }
+        if (active) setAuthChecking(false);
       })
       .catch(() => setLocation("/host/login"));
+    return () => {
+      active = false;
+    };
   }, [setLocation]);
 
   useEffect(() => {
@@ -148,6 +157,17 @@ export default function HostDashboard() {
     },
   ];
 
+  if (authChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white">
+        <div className="text-center" dir="rtl">
+          <ShieldCheck className="w-10 h-10 mx-auto mb-4 text-blue-400 animate-pulse" />
+          <p className="font-bold">جاري التحقق من جلسة المضيف...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen p-4 md:p-8 relative">
       <AnimatedBackground />
@@ -160,7 +180,7 @@ export default function HostDashboard() {
               <ShieldCheck className="w-8 h-8" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">Host Dashboard (View Only)</h1>
+            <h1 className="text-2xl font-bold text-white">Host Dashboard</h1>
               <div className="flex items-center gap-2 text-sm text-gray-400 font-medium">
                 <span className={cn("w-2 h-2 rounded-full", isAccepting ? "bg-green-500 animate-pulse" : "bg-red-500")} />
                 {isAccepting ? "LIVE: Accepting Answers" : "PAUSED: Submissions Closed"}
@@ -173,7 +193,7 @@ export default function HostDashboard() {
         </header>
 
         <main className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <StudentDatabasePanel onStudentsChanged={() => window.location.reload()} />
+          <StudentDatabasePanel />
         </main>
 
         {/* Session Counters */}

@@ -1,0 +1,1 @@
+- [Server route reloads](server-route-reloads.md) — backend route changes require restarting the configured workflow; client HMR alone can leave old API behavior running.
