@@ -4,6 +4,7 @@ This project is configured to run locally on your laptop and can be accessed by 
 
 ## Prerequisites
 - **Node.js** (v18 or higher) installed on your laptop.
+- **pnpm** (v10 or compatible) installed on your laptop.
 - Both the laptop and other devices must be on the **same WiFi network** or the same **mobile hotspot**.
 
 ## How to Run Locally
@@ -12,17 +13,17 @@ This project is configured to run locally on your laptop and can be accessed by 
 2. **Install Dependencies**:
    Open your terminal (Command Prompt or PowerShell on Windows, Terminal on Mac/Linux) in that folder and run:
    ```bash
-   npm install
+    pnpm install
    ```
 3. **Build the Project**:
    Run the following command to prepare the local version:
    ```bash
-   npm run build
+    pnpm run build
    ```
 4. **Start the Server**:
    Run the following command to start the server:
    ```bash
-   npm start
+    pnpm start
    ```
    The server will start, and you should see a message like:
    `[express] serving on port 5000`

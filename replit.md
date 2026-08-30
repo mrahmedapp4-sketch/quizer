@@ -7,7 +7,7 @@ A real-time, interactive quiz application designed for classroom use. Teachers h
 - **Frontend**: React 18 + TypeScript, Tailwind CSS, shadcn/ui, Framer Motion, TanStack Query, Wouter
 - **Backend**: Express 5 + Node.js, WebSockets (ws), Passport.js (Google OAuth)
 - **Build Tool**: Vite (frontend dev server integrated into Express)
-- **Package Manager**: npm
+- **Package Manager**: pnpm
 - **Language**: TypeScript (both client and server)
 - **Storage**: File-backed student accounts and points in `/data/students.json`, plus JSON session counters. Student removal is a soft archive: the record, points, and account statistics remain stored while archived students disappear from the teacher/host active list.
 - **ORM**: Drizzle ORM (configured for PostgreSQL but defaults to memory/file storage)
@@ -28,24 +28,24 @@ A real-time, interactive quiz application designed for classroom use. Teachers h
 In development, Express serves everything on port 5000 — including the Vite dev server (integrated via `server/vite.ts`). There is no separate frontend server.
 
 ```bash
-npm run dev    # starts Express + Vite on port 5000
-npm run build  # builds frontend to dist/public, compiles server to dist/
-npm start      # runs production build
+pnpm run dev    # starts Express + Vite on port 5000
+pnpm run build  # builds frontend to dist/public, compiles server to dist/
+pnpm start      # runs production build
 ```
 
 ## Workflow
 
-- **Start application**: `npm run dev` → port 5000 (webview)
+- **Start application**: `pnpm run dev` → port 5000 (webview)
 
 ## Deployment
 
 - **Target**: VM (always-running, needed for WebSocket support and in-memory state)
-- **Build**: `npm run build`
+- **Build**: `pnpm run build`
 - **Run**: `node dist/index.js`
 
 ### Railway
 
-- **Build**: `npm install && npm run build` (Railway/Nixpacks detects this from `package.json`)
+- **Build**: `pnpm install --frozen-lockfile && pnpm run build` (Railway/Nixpacks detects this from `package.json`)
 - **Start**: `node dist/index.js`
 - **Health check**: `/api/health`
 - **Required variable**: `SESSION_SECRET`
