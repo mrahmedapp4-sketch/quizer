@@ -51,8 +51,7 @@ export default function TeacherLogin() {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            type="button" // Use type="submit" in real logic, just forcing onClick here for clarity
-            onClick={handleSubmit}
+            type="submit"
             disabled={login.isPending || !password}
             className="w-full py-4 rounded-xl font-bold text-lg bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/25 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >

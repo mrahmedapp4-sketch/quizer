@@ -11,6 +11,7 @@ import { loadEmails, saveEmails, addOrUpdateEmail, type SavedEmail } from "./ema
 import { createAuthToken, hashPassword, readAuthToken, verifyPassword } from "./auth";
 
 const TEACHER_PASSWORD = "246802";
+const HOST_PASSWORD = "123789";
 
 // Google OAuth Config
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
@@ -133,6 +134,11 @@ function requireTeacher(req: any, res: any, next: any) {
   return res.status(401).json({ message: "يجب تسجيل دخول المراقب" });
 }
 
+function requireMonitor(req: any, res: any, next: any) {
+  if (req.session?.teacherAuthenticated === true || req.session?.hostAuthenticated === true) return next();
+  return res.status(401).json({ message: "يجب تسجيل دخول المضيف أو المدرس" });
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -196,6 +202,24 @@ export async function registerRoutes(
   });
 
   // Teacher APIs
+  app.post("/api/host/login", (req, res) => {
+    if (req.body?.password === HOST_PASSWORD) {
+      (req.session as any).hostAuthenticated = true;
+      return res.json({ success: true });
+    }
+    return res.status(401).json({ message: "كلمة مرور المضيف غير صحيحة" });
+  });
+
+  app.get("/api/host/session", (req, res) => {
+    if ((req.session as any).hostAuthenticated === true) return res.json({ authenticated: true });
+    return res.status(401).json({ message: "يجب تسجيل دخول المضيف" });
+  });
+
+  app.post("/api/host/logout", (req, res) => {
+    (req.session as any).hostAuthenticated = false;
+    res.json({ success: true });
+  });
+
   app.post(api.teacher.login.path, (req, res) => {
     const { password } = req.body;
     if (password === TEACHER_PASSWORD) {
@@ -279,7 +303,7 @@ export async function registerRoutes(
     res.json({ success: true, showAccuracy: quizState.showAccuracy });
   });
 
-  app.delete("/api/students/:id", requireTeacher, async (req, res) => {
+  app.delete("/api/students/:id", requireMonitor, async (req, res) => {
     const id = parseInt(req.params.id);
     const student = await storage.getStudent(id);
     if (student) {
@@ -299,7 +323,7 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  app.delete("/api/students", requireTeacher, async (req, res) => {
+  app.delete("/api/students", requireMonitor, async (req, res) => {
     // Reset all scores before deleting
     // await storage.resetAllStudents();
     await storage.deleteAllStudents();
@@ -402,7 +426,7 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  app.post("/api/students/:id/points", requireTeacher, async (req, res) => {
+  app.post("/api/students/:id/points", requireMonitor, async (req, res) => {
     const id = parseInt(req.params.id);
     const { points } = req.body;
     const student = await storage.getStudent(id);
@@ -416,12 +440,12 @@ export async function registerRoutes(
 
   // Monitor-only database management. Passwords are never returned: only the
   // password hash is stored, and a monitor can set a new password instead.
-  app.get("/api/teacher/students", requireTeacher, async (_req, res) => {
+  app.get("/api/teacher/students", requireMonitor, async (_req, res) => {
     const allStudents = await storage.getAllStudents();
     res.json(allStudents.map(publicStudent));
   });
 
-  app.post("/api/teacher/students/:id/points", requireTeacher, async (req, res) => {
+  app.post("/api/teacher/students/:id/points", requireMonitor, async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     const points = Number.parseInt(String(req.body?.points ?? ""), 10);
     if (!Number.isInteger(id) || !Number.isInteger(points) || points === 0 || Math.abs(points) > 10000) {
@@ -434,7 +458,7 @@ export async function registerRoutes(
     res.json({ success: true, student: publicStudent(updated) });
   });
 
-  app.post("/api/teacher/students/:id/password", requireTeacher, async (req, res) => {
+  app.post("/api/teacher/students/:id/password", requireMonitor, async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     const password = typeof req.body?.password === "string" ? req.body.password : "";
     if (password.length < 6 || password.length > 100) {
@@ -446,7 +470,7 @@ export async function registerRoutes(
     res.json({ success: true, student: publicStudent(updated) });
   });
 
-  app.delete("/api/teacher/reset-database", requireTeacher, async (_req, res) => {
+  app.delete("/api/teacher/reset-database", requireMonitor, async (_req, res) => {
     await storage.deleteAllStudentsPermanently();
     savedEmails = [];
     saveEmails(savedEmails);

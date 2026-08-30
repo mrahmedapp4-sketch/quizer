@@ -8,20 +8,35 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function HostLogin() {
   const [password, setPassword] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === "123789") {
+    if (!password || isLoggingIn) return;
+    setIsLoggingIn(true);
+    try {
+      const response = await fetch("/api/host/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ password }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message);
+      }
       sessionStorage.setItem("host_auth", "true");
       setLocation("/host/dashboard");
-    } else {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "خطأ في الدخول",
-        description: "كلمة المرور غير صحيحة للهوست",
+        description: error instanceof Error ? error.message : "تعذر تسجيل الدخول",
       });
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -43,14 +58,14 @@ export default function HostLogin() {
             <ShieldCheck className="w-8 h-8" />
           </div>
           <h2 className="text-3xl text-white font-display">Host Access</h2>
-          <p className="text-gray-400 mt-2">Enter the host passcode to continue (View Only)</p>
+          <p className="text-gray-400 mt-2">ادخل كلمة مرور المضيف لإدارة الطلاب والنتائج</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <input
               type="password"
-              placeholder="Enter Host Passcode (123789)"
+              placeholder="Enter Host Passcode"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-6 py-4 text-center text-2xl font-mono tracking-widest rounded-xl border-2 border-white/10 bg-white/5 text-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none placeholder:text-gray-600"
@@ -62,9 +77,10 @@ export default function HostLogin() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             type="submit"
-            className="w-full py-4 rounded-xl font-bold text-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all"
+            disabled={isLoggingIn || !password}
+            className="w-full py-4 rounded-xl font-bold text-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 transition-all"
           >
-            Enter Host Dashboard
+            {isLoggingIn ? "جاري الدخول..." : "دخول لوحة المضيف"}
           </motion.button>
         </form>
       </motion.div>

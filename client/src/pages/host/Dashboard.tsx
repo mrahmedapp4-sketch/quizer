@@ -7,6 +7,7 @@ import { Trophy, Users, ShieldCheck, LogIn, Trash2, ChevronRight, Mail, Copy, Ch
 import { Student } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
+import StudentDatabasePanel from "@/components/StudentDatabasePanel";
 
 interface Counters {
   joinCount: number;
@@ -48,9 +49,11 @@ export default function HostDashboard() {
   });
 
   useEffect(() => {
-    if (sessionStorage.getItem("host_auth") !== "true") {
-      setLocation("/host/login");
-    }
+    fetch("/api/host/session", { credentials: "include" })
+      .then((response) => {
+        if (!response.ok) setLocation("/host/login");
+      })
+      .catch(() => setLocation("/host/login"));
   }, [setLocation]);
 
   useEffect(() => {
@@ -169,6 +172,10 @@ export default function HostDashboard() {
           </div>
         </header>
 
+        <main className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <StudentDatabasePanel onStudentsChanged={() => window.location.reload()} />
+        </main>
+
         {/* Session Counters */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {counterCards.map((card) => {
@@ -237,7 +244,7 @@ export default function HostDashboard() {
           )}
         </div>
 
-        <main className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-4 space-y-6">
             <div className="bg-zinc-900/80 backdrop-blur-md rounded-3xl p-6 shadow-lg border border-white/10">
               <h2 className="text-xl font-bold mb-4 text-white">Current Answer Key</h2>
@@ -305,7 +312,7 @@ export default function HostDashboard() {
               </div>
             </div>
           </div>
-        </main>
+        </section>
       </div>
     </div>
   );
