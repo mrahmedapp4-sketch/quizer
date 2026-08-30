@@ -5,7 +5,7 @@ import { useStudentsList } from "@/hooks/use-students";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { BigButton } from "@/components/BigButton";
 import { motion, AnimatePresence } from "framer-motion";
-import { FlaskConical, Beaker, Microscope, Atom, Plus, Copy, LogOut, Trophy, Users, RefreshCw, Play, Pause, Trash2, CheckCircle, Image as ImageIcon, Database, Search, KeyRound, UserRound } from "lucide-react";
+import { FlaskConical, Beaker, Microscope, Atom, Plus, Copy, LogOut, Trophy, Users, RefreshCw, Play, Pause, Trash2, CheckCircle, Image as ImageIcon } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -192,13 +192,6 @@ export default function TeacherDashboard() {
   };
 
   const currentChoices = customChoices || ["A", "B", "C", "D"];
-  const normalizedDatabaseSearch = databaseSearch.trim().toLowerCase();
-  const filteredDatabaseStudents = databaseStudents.filter((student) => {
-    if (!normalizedDatabaseSearch) return true;
-    return [student.name, student.username ?? "", student.email ?? ""]
-      .some((value) => value.toLowerCase().includes(normalizedDatabaseSearch));
-  });
-
   return (
     <div className="min-h-screen p-4 md:p-8 relative">
       <AnimatedBackground />
@@ -819,30 +812,6 @@ export default function TeacherDashboard() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={passwordStudent !== null} onOpenChange={(open) => !open && setPasswordStudent(null)}>
-          <DialogContent className="bg-zinc-900 border-white/10 text-white max-w-sm rounded-3xl">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-center text-white">تغيير كلمة مرور الطالب</DialogTitle>
-              <DialogDescription className="text-center text-gray-400">
-                {passwordStudent?.name} · {passwordStudent?.username || "بدون اسم مستخدم"}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3 py-4">
-              <Input
-                type="password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                placeholder="كلمة المرور الجديدة (6 أحرف على الأقل)"
-                className="bg-white/5 border-white/10 text-white h-12 rounded-xl"
-                autoFocus
-              />
-            </div>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" onClick={() => setPasswordStudent(null)} className="rounded-xl border-white/10 hover:bg-white/5 text-white h-12">إلغاء</Button>
-              <Button onClick={handlePasswordReset} disabled={newPassword.length < 6} className="rounded-xl bg-primary hover:opacity-90 text-primary-foreground font-bold h-12">حفظ كلمة المرور</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );
