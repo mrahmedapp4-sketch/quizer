@@ -8,7 +8,7 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { loadCounters, saveCounters } from "./counters";
 import { loadEmails, saveEmails, addOrUpdateEmail, type SavedEmail } from "./emails";
-import { createAuthToken, hashPassword, readAuthToken, verifyPassword } from "./auth";
+import { createAuthToken, createStaffAuthToken, hashPassword, readAuthToken, readStaffAuthToken, verifyPassword, type StaffRole } from "./auth";
 
 const TEACHER_PASSWORD = "246802";
 const HOST_PASSWORD = "123789";
@@ -95,7 +95,9 @@ let sessionCounters = loadCounters();
 let savedEmails: SavedEmail[] = loadEmails();
 
 const STUDENT_AUTH_COOKIE = "student_auth";
+const STAFF_AUTH_COOKIE = "staff_auth";
 const STUDENT_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
+const STAFF_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
 
 function publicStudent(student: any) {
   if (!student) return student;
@@ -129,13 +131,29 @@ function forgetStudent(res: any) {
   res.setHeader("Set-Cookie", `${STUDENT_AUTH_COOKIE}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax`);
 }
 
+function rememberStaff(res: any, role: StaffRole) {
+  res.cookie(STAFF_AUTH_COOKIE, createStaffAuthToken(role), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: STAFF_COOKIE_MAX_AGE * 1000,
+    path: "/",
+  });
+}
+
+function forgetStaff(res: any) {
+  res.clearCookie(STAFF_AUTH_COOKIE, { httpOnly: true, sameSite: "lax", path: "/" });
+}
+
 function requireTeacher(req: any, res: any, next: any) {
-  if (req.session?.teacherAuthenticated === true) return next();
+  const staffRole = readStaffAuthToken(getCookie(req, STAFF_AUTH_COOKIE));
+  if (req.session?.teacherAuthenticated === true || staffRole === "teacher") return next();
   return res.status(401).json({ message: "يجب تسجيل دخول المراقب" });
 }
 
 function requireMonitor(req: any, res: any, next: any) {
-  if (req.session?.teacherAuthenticated === true || req.session?.hostAuthenticated === true) return next();
+  const staffRole = readStaffAuthToken(getCookie(req, STAFF_AUTH_COOKIE));
+  if (req.session?.teacherAuthenticated === true || req.session?.hostAuthenticated === true || staffRole === "teacher" || staffRole === "host") return next();
   return res.status(401).json({ message: "يجب تسجيل دخول المضيف أو المدرس" });
 }
 
@@ -205,6 +223,7 @@ export async function registerRoutes(
   app.post("/api/host/login", (req, res) => {
     if (req.body?.password === HOST_PASSWORD) {
       (req.session as any).hostAuthenticated = true;
+      rememberStaff(res, "host");
       return req.session.save((error) => {
         if (error) {
           console.error("[Host Auth] Failed to save session:", error);
@@ -217,12 +236,14 @@ export async function registerRoutes(
   });
 
   app.get("/api/host/session", (req, res) => {
-    if ((req.session as any).hostAuthenticated === true) return res.json({ authenticated: true });
+    const staffRole = readStaffAuthToken(getCookie(req, STAFF_AUTH_COOKIE));
+    if ((req.session as any).hostAuthenticated === true || staffRole === "host") return res.json({ authenticated: true });
     return res.status(401).json({ message: "يجب تسجيل دخول المضيف" });
   });
 
   app.post("/api/host/logout", (req, res) => {
     (req.session as any).hostAuthenticated = false;
+    forgetStaff(res);
     res.json({ success: true });
   });
 
@@ -230,6 +251,7 @@ export async function registerRoutes(
     const { password } = req.body;
     if (password === TEACHER_PASSWORD) {
       (req.session as any).teacherAuthenticated = true;
+      rememberStaff(res, "teacher");
       req.session.save((error) => {
         if (error) {
           console.error("[Teacher Auth] Failed to save session:", error);
@@ -248,6 +270,7 @@ export async function registerRoutes(
 
   app.post("/api/teacher/logout", requireTeacher, (req, res) => {
     (req.session as any).teacherAuthenticated = false;
+    forgetStaff(res);
     res.json({ success: true });
   });
 

@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
 const PASSWORD_KEY_LENGTH = 64;
+export type StaffRole = "teacher" | "host";
 
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");
@@ -47,6 +48,37 @@ export function readAuthToken(token: string | undefined): number | undefined {
     // Keep the browser login valid for 30 days, including after a server restart.
     if (Date.now() - issuedAt > 30 * 24 * 60 * 60 * 1000) return undefined;
     return id;
+  } catch {
+    return undefined;
+  }
+}
+
+export function createStaffAuthToken(role: StaffRole): string {
+  const payload = `${role}.${Date.now()}`;
+  const signature = createHmac("sha256", process.env.SESSION_SECRET || "dev-secret-key-change-in-production")
+    .update(payload)
+    .digest("hex");
+  return `${payload}.${signature}`;
+}
+
+export function readStaffAuthToken(token: string | undefined): StaffRole | undefined {
+  if (!token) return undefined;
+  const parts = token.split(".");
+  if (parts.length !== 3) return undefined;
+  const [role, timestamp, signature] = parts;
+  if (role !== "teacher" && role !== "host") return undefined;
+
+  const payload = `${role}.${timestamp}`;
+  const expected = createHmac("sha256", process.env.SESSION_SECRET || "dev-secret-key-change-in-production")
+    .update(payload)
+    .digest("hex");
+
+  try {
+    if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return undefined;
+    const issuedAt = Number(timestamp);
+    if (!Number.isFinite(issuedAt)) return undefined;
+    if (Date.now() - issuedAt > 30 * 24 * 60 * 60 * 1000) return undefined;
+    return role;
   } catch {
     return undefined;
   }
