@@ -12,6 +12,7 @@ export function useTeacherLogin() {
       const res = await fetch(api.teacher.login.path, {
         method: api.teacher.login.method,
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ password }),
       });
       if (!res.ok) {
@@ -43,6 +44,7 @@ export function useTeacherActions() {
       const res = await fetch(api.teacher.setAnswer.path, {
         method: api.teacher.setAnswer.method,
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ answer }),
       });
       if (!res.ok) throw new Error("Failed to set answer");
@@ -59,6 +61,7 @@ export function useTeacherActions() {
       const res = await fetch(api.teacher.toggleAccepting.path, {
         method: api.teacher.toggleAccepting.method,
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ accepting }),
       });
       if (!res.ok) throw new Error("Failed to toggle status");
@@ -76,6 +79,7 @@ export function useTeacherActions() {
     mutationFn: async () => {
       const res = await fetch(api.teacher.reset.path, {
         method: api.teacher.reset.method,
+        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to reset");
       return res.json();

@@ -50,73 +50,25 @@ export default function TeacherDashboard() {
   const [pointAdjustValue, setPointAdjustValue] = useState<string>("0");
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [photos, setPhotos] = useState<Record<number, string>>({});
-  const [databaseStudents, setDatabaseStudents] = useState<Student[]>([]);
-  const [databaseSearch, setDatabaseSearch] = useState("");
-  const [passwordStudent, setPasswordStudent] = useState<Student | null>(null);
-  const [newPassword, setNewPassword] = useState("");
-  const [isResettingDatabase, setIsResettingDatabase] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const resetRefresh = () => {};
 
-  const refreshDatabase = async () => {
-    const response = await fetch("/api/teacher/students", { credentials: "include" });
-    if (!response.ok) {
-      if (response.status === 401) setLocation("/teacher/login");
-      throw new Error("تعذر تحميل قاعدة بيانات الطلاب");
-    }
-    const data = await response.json();
-    setDatabaseStudents(Array.isArray(data) ? data : []);
-  };
-
   useEffect(() => {
+    let active = true;
     fetch("/api/teacher/session", { credentials: "include" })
       .then((response) => {
-        if (!response.ok) setLocation("/teacher/login");
-        else return refreshDatabase();
+        if (!response.ok) {
+          setLocation("/teacher/login");
+          return;
+        }
+        if (active) setTeacherAuthenticated(true);
       })
       .catch(() => setLocation("/teacher/login"));
+    return () => {
+      active = false;
+    };
   }, [setLocation]);
-
-  const handleAdminPoint = async (studentId: number) => {
-    try {
-      await apiRequest("POST", `/api/teacher/students/${studentId}/points`, { points: 1 });
-      await refreshDatabase();
-      await refetch();
-      toast({ title: "تمت إضافة نقطة", description: "تم تحديث نقاط الطالب في قاعدة البيانات" });
-    } catch {
-      toast({ title: "خطأ", description: "تعذر إضافة النقطة", variant: "destructive" });
-    }
-  };
-
-  const handlePasswordReset = async () => {
-    if (!passwordStudent) return;
-    try {
-      await apiRequest("POST", `/api/teacher/students/${passwordStudent.id}/password`, { password: newPassword });
-      await refreshDatabase();
-      setPasswordStudent(null);
-      setNewPassword("");
-      toast({ title: "تم تغيير كلمة المرور", description: `تم تحديث حساب ${passwordStudent.name}` });
-    } catch (error) {
-      toast({ title: "خطأ", description: error instanceof Error ? error.message : "تعذر تغيير كلمة المرور", variant: "destructive" });
-    }
-  };
-
-  const handleDatabaseReset = async () => {
-    if (window.prompt("للتأكيد اكتب: حذف الكل") !== "حذف الكل") return;
-    setIsResettingDatabase(true);
-    try {
-      await apiRequest("DELETE", "/api/teacher/reset-database");
-      setDatabaseStudents([]);
-      setStudents([]);
-      await refetch();
-      toast({ title: "تم تنظيف قاعدة البيانات", description: "تم حذف جميع حسابات الطلاب وبياناتهم نهائيًا" });
-    } catch {
-      toast({ title: "خطأ", description: "تعذر تنظيف قاعدة البيانات", variant: "destructive" });
-    } finally {
-      setIsResettingDatabase(false);
-    }
-  };
 
   const handlePointAdjustment = async () => {
     if (selectedStudentId === null) return;
