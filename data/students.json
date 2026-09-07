@@ -166,7 +166,8 @@
     "correctAnswersCount": 20,
     "createdAt": "2026-08-30T17:40:51.035Z",
     "updatedAt": "2026-08-30T19:06:20.326Z",
-    "archivedAt": "2026-08-30T19:06:53.158Z"
+    "archivedAt": "2026-08-30T19:06:53.158Z",
+    "responseTime": null
   },
   {
     "name": "Arwa",
@@ -183,7 +184,8 @@
     "correctAnswersCount": 15,
     "createdAt": "2026-08-30T17:40:52.863Z",
     "updatedAt": "2026-08-30T19:06:20.326Z",
-    "archivedAt": "2026-08-30T19:06:53.158Z"
+    "archivedAt": "2026-08-30T19:06:53.158Z",
+    "responseTime": null
   },
   {
     "name": "Ziad mohamed ahmed",
@@ -200,7 +202,8 @@
     "correctAnswersCount": 18,
     "createdAt": "2026-08-30T17:41:10.536Z",
     "updatedAt": "2026-08-30T19:06:20.326Z",
-    "archivedAt": "2026-08-30T19:06:53.158Z"
+    "archivedAt": "2026-08-30T19:06:53.158Z",
+    "responseTime": null
   },
   {
     "name": "TAHOON",
@@ -217,7 +220,8 @@
     "correctAnswersCount": 20,
     "createdAt": "2026-08-30T17:41:22.771Z",
     "updatedAt": "2026-08-30T19:06:20.326Z",
-    "archivedAt": "2026-08-30T19:06:53.158Z"
+    "archivedAt": "2026-08-30T19:06:53.158Z",
+    "responseTime": null
   },
   {
     "name": "Mohamed Ehab",
@@ -234,7 +238,8 @@
     "correctAnswersCount": 23,
     "createdAt": "2026-08-30T17:41:51.730Z",
     "updatedAt": "2026-08-30T19:06:20.326Z",
-    "archivedAt": "2026-08-30T19:06:53.158Z"
+    "archivedAt": "2026-08-30T19:06:53.158Z",
+    "responseTime": null
   },
   {
     "name": "Asser",
@@ -251,7 +256,8 @@
     "correctAnswersCount": 22,
     "createdAt": "2026-08-30T17:43:09.097Z",
     "updatedAt": "2026-08-30T19:06:20.326Z",
-    "archivedAt": "2026-08-30T19:06:53.158Z"
+    "archivedAt": "2026-08-30T19:06:53.158Z",
+    "responseTime": null
   },
   {
     "name": "Menna't Allah",
@@ -307,8 +313,8 @@
     "totalAnswers": 0,
     "correctAnswersCount": 0,
     "createdAt": "2026-08-30T19:12:22.404Z",
-    "updatedAt": "2026-08-30T19:12:22.404Z",
-    "archivedAt": null
+    "updatedAt": "2026-09-07T10:23:47.596Z",
+    "archivedAt": "2026-09-07T10:23:47.596Z"
   },
   {
     "name": "MennatAllah",
@@ -345,7 +351,7 @@
     "totalAnswers": 0,
     "correctAnswersCount": 0,
     "createdAt": "2026-08-30T19:20:46.485Z",
-    "updatedAt": "2026-08-30T19:20:46.485Z",
-    "archivedAt": null
+    "updatedAt": "2026-09-07T10:23:47.596Z",
+    "archivedAt": "2026-09-07T10:23:47.596Z"
   }
 ]
