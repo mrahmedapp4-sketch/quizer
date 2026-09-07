@@ -378,7 +378,7 @@ export default function TeacherDashboard() {
 
                         {/* Rest of students */}
                         {rest.length > 0 && (
-                          <div className="px-6 pt-4 pb-2 space-y-2 max-h-[280px] overflow-y-auto">
+                          <div className="px-6 pt-4 pb-2 space-y-2">
                             {rest.map((student, i) => {
                               const rank = i + 4;
                               const acc = student.totalAnswers > 0
@@ -468,7 +468,7 @@ export default function TeacherDashboard() {
                   </AlertDialogDescription>
                 </div>
 
-                <div className="px-5 py-4 max-h-[320px] overflow-y-auto space-y-2" dir="rtl">
+                <div className="px-5 py-4 space-y-2" dir="rtl">
                   {students.length > 0 ? (
                     [...students]
                       .sort((a, b) => b.score - a.score)
