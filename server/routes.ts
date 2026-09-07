@@ -9,6 +9,7 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { loadCounters, saveCounters } from "./counters";
 import { loadEmails, saveEmails, addOrUpdateEmail, type SavedEmail } from "./emails";
 import { createAuthToken, createStaffAuthToken, hashPassword, readAuthToken, readStaffAuthToken, verifyPassword, type StaffRole } from "./auth";
+import { getAuditEntries, recordAudit, type AuditEntry } from "./audit";
 
 const TEACHER_PASSWORD = "246802";
 const HOST_PASSWORD = "123789";
@@ -47,6 +48,16 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
         });
       }
 
+       if (student.archivedAt) {
+         student = await storage.restoreStudent(student.id);
+         recordAudit({
+           actor: "student",
+           action: "student_restore",
+           target: `student:${student.id}`,
+           details: "إعادة تفعيل الحساب عند تسجيل الدخول عبر Google",
+         });
+       }
+
       // Save Google profile photo to storage
       if (googlePhoto) {
         await storage.setStudentPhoto(student.id, googlePhoto);
@@ -60,6 +71,13 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
         savedEmails = addOrUpdateEmail(email, studentName, savedEmails);
         saveEmails(savedEmails);
       }
+
+       recordAudit({
+         actor: "student",
+         action: "student_google_login",
+         target: `student:${student.id}`,
+         details: `دخول الطالب ${student.name} عبر Google`,
+       });
       
       return done(null, student);
     } catch (err) {
@@ -163,6 +181,14 @@ function requireHost(req: any, res: any, next: any) {
   return res.status(403).json({ message: "هذا الإجراء متاح للمضيف فقط" });
 }
 
+function getRequestActor(req: any): AuditEntry["actor"] {
+  const staffRole = readStaffAuthToken(getCookie(req, STAFF_AUTH_COOKIE));
+  if (req.session?.hostAuthenticated === true || staffRole === "host") return "host";
+  if (req.session?.teacherAuthenticated === true || staffRole === "teacher") return "teacher";
+  if (getStudentIdFromRequest(req)) return "student";
+  return "anonymous";
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -235,6 +261,7 @@ export async function registerRoutes(
           console.error("[Host Auth] Failed to save session:", error);
           return res.status(500).json({ message: "تعذر حفظ جلسة المضيف" });
         }
+        recordAudit({ actor: "host", action: "host_login", details: "دخول ناجح إلى لوحة المضيف" });
         return res.json({ success: true });
       });
     }
@@ -245,6 +272,11 @@ export async function registerRoutes(
     const staffRole = readStaffAuthToken(getCookie(req, STAFF_AUTH_COOKIE));
     if ((req.session as any).hostAuthenticated === true || staffRole === "host") return res.json({ authenticated: true });
     return res.status(401).json({ message: "يجب تسجيل دخول المضيف" });
+  });
+
+  app.get("/api/host/audit-log", requireHost, (req, res) => {
+    const requestedLimit = Number.parseInt(String(req.query.limit ?? "200"), 10);
+    res.json(getAuditEntries(Number.isFinite(requestedLimit) ? requestedLimit : 200));
   });
 
   app.post("/api/host/logout", (req, res) => {
@@ -263,6 +295,7 @@ export async function registerRoutes(
           console.error("[Teacher Auth] Failed to save session:", error);
           return res.status(500).json({ message: "تعذر حفظ جلسة المدرس" });
         }
+        recordAudit({ actor: "teacher", action: "teacher_login", details: "دخول ناجح إلى لوحة المدرس" });
         return res.json({ success: true });
       });
     } else {
@@ -303,6 +336,11 @@ export async function registerRoutes(
       }
     }
     
+    recordAudit({
+      actor: getRequestActor(req),
+      action: "set_answer",
+      details: "تحديد إجابة السؤال وتصحيح الإجابات السابقة",
+    });
     broadcastState();
     res.json({ success: true });
   });
@@ -310,6 +348,11 @@ export async function registerRoutes(
   app.post(api.teacher.toggleAccepting.path, requireTeacher, (req, res) => {
     const { accepting } = req.body;
     quizState.isAcceptingAnswers = accepting;
+    recordAudit({
+      actor: getRequestActor(req),
+      action: "toggle_accepting_answers",
+      details: `استقبال الإجابات: ${accepting ? "مفعل" : "متوقف"}`,
+    });
     broadcastState();
     res.json({ success: true });
   });
@@ -323,6 +366,7 @@ export async function registerRoutes(
     quizState.customChoices = null;
     quizState.isAcceptingAnswers = true;
     quizState.answerStartTime = 0;
+    recordAudit({ actor: getRequestActor(req), action: "reset_quiz", details: "بدء سؤال جديد مع الاحتفاظ بالنقاط" });
     broadcastState();
     res.json({ success: true });
   });
@@ -333,6 +377,7 @@ export async function registerRoutes(
     quizState.customChoices = null;
     quizState.isAcceptingAnswers = true;
     quizState.answerStartTime = 0;
+    recordAudit({ actor: getRequestActor(req), action: "reset_points", details: "تصفير نقاط الطلاب النشطين" });
     broadcastState();
     res.json({ success: true });
   });
@@ -340,6 +385,7 @@ export async function registerRoutes(
   app.post("/api/teacher/toggle-accuracy", requireTeacher, (req, res) => {
     const { show } = req.body;
     quizState.showAccuracy = typeof show === "boolean" ? show : !quizState.showAccuracy;
+    recordAudit({ actor: getRequestActor(req), action: "toggle_accuracy", details: `عرض الدقة: ${quizState.showAccuracy ? "مفعل" : "متوقف"}` });
     broadcastState();
     res.json({ success: true, showAccuracy: quizState.showAccuracy });
   });
@@ -348,7 +394,16 @@ export async function registerRoutes(
   // It must never reset the student's saved score or account data.
   app.delete("/api/students/:id", requireMonitor, async (req, res) => {
     const id = parseInt(req.params.id);
+    const student = await storage.getStudent(id);
     await storage.deleteStudent(id);
+    if (student) {
+      recordAudit({
+        actor: getRequestActor(req),
+        action: "archive_student",
+        target: `student:${id}`,
+        details: `أرشفة الحساب ${student.name}`,
+      });
+    }
     
     // Notify the specific student to logout/kick
     const kickMessage = JSON.stringify({ type: "KICK_STUDENT", payload: { studentId: id } });
@@ -364,9 +419,15 @@ export async function registerRoutes(
 
   app.delete("/api/students", requireMonitor, async (req, res) => {
     // Archive students for this session only; scores and accounts remain saved.
+    const activeStudents = await storage.getStudents();
     await storage.deleteAllStudents();
     sessionCounters.deleteAllCount++;
     saveCounters(sessionCounters);
+    recordAudit({
+      actor: getRequestActor(req),
+      action: "archive_all_students",
+      details: `أرشفة ${activeStudents.length} حسابًا مع الاحتفاظ بالنقاط والبيانات`,
+    });
     
     // Notify all students to logout/kick
     const kickAllMessage = JSON.stringify({ type: "KICK_ALL", payload: {} });
@@ -387,6 +448,12 @@ export async function registerRoutes(
       return res.status(400).json({ message: "Photo required" });
     }
     await storage.setStudentPhoto(id, photo);
+    recordAudit({
+      actor: getRequestActor(req),
+      action: "add_student_photo",
+      target: `student:${id}`,
+      details: "إضافة أو تحديث صورة الطالب",
+    });
     broadcast({ type: "PHOTO_ADDED", payload: { studentId: id, photo } });
     res.json({ success: true });
   });
@@ -429,6 +496,12 @@ export async function registerRoutes(
     rememberStudent(req, res, student.id);
     sessionCounters.joinCount++;
     saveCounters(sessionCounters);
+    recordAudit({
+      actor: "student",
+      action: "student_register",
+      target: `student:${student.id}`,
+      details: `إنشاء حساب الطالب ${student.name}`,
+    });
     broadcastState();
     return res.status(201).json(publicStudent(student));
   });
@@ -441,8 +514,24 @@ export async function registerRoutes(
     if (!student || !student.passwordHash || !verifyPassword(password, student.passwordHash)) {
       return res.status(401).json({ message: "اسم المستخدم أو كلمة المرور غير صحيحة" });
     }
-    rememberStudent(req, res, student.id);
-    return res.json(publicStudent(student));
+    let activeStudent = student;
+    if (student.archivedAt) {
+      activeStudent = await storage.restoreStudent(student.id);
+      recordAudit({
+        actor: "student",
+        action: "student_restore",
+        target: `student:${student.id}`,
+        details: "إعادة تفعيل الحساب عند تسجيل الدخول",
+      });
+    }
+    rememberStudent(req, res, activeStudent.id);
+    recordAudit({
+      actor: "student",
+      action: "student_login",
+      target: `student:${activeStudent.id}`,
+      details: `دخول الطالب ${activeStudent.name}`,
+    });
+    return res.json(publicStudent(activeStudent));
   });
 
   app.get("/api/student/me", async (req, res) => {
@@ -472,6 +561,12 @@ export async function registerRoutes(
     
     const newScore = student.score + (parseInt(points) || 0);
     await storage.updateStudentScore(id, newScore);
+    recordAudit({
+      actor: getRequestActor(req),
+      action: "add_points",
+      target: `student:${id}`,
+      details: `تغيير النقاط بمقدار ${parseInt(points) || 0} إلى ${newScore}`,
+    });
     broadcastState();
     res.json({ success: true, newScore });
   });
@@ -492,6 +587,12 @@ export async function registerRoutes(
     const student = await storage.getStudent(id);
     if (!student || student.archivedAt) return res.status(404).json({ message: "الطالب غير موجود أو مؤرشف" });
     const updated = await storage.updateStudentScore(id, student.score + points);
+    recordAudit({
+      actor: getRequestActor(req),
+      action: "add_points",
+      target: `student:${id}`,
+      details: `تغيير نقاط ${student.name} بمقدار ${points} إلى ${updated.score}`,
+    });
     broadcastState();
     res.json({ success: true, student: publicStudent(updated) });
   });
@@ -505,10 +606,17 @@ export async function registerRoutes(
     const student = await storage.getStudent(id);
     if (!student || student.archivedAt) return res.status(404).json({ message: "الطالب غير موجود أو مؤرشف" });
     const updated = await storage.updateStudentPassword(id, hashPassword(password));
+    recordAudit({
+      actor: getRequestActor(req),
+      action: "change_student_password",
+      target: `student:${id}`,
+      details: `تغيير كلمة مرور ${student.name} دون تسجيل كلمة المرور`,
+    });
     res.json({ success: true, student: publicStudent(updated) });
   });
 
   app.delete("/api/teacher/reset-database", requireHost, async (_req, res) => {
+    const existingStudents = await storage.getAllStudents();
     await storage.deleteAllStudentsPermanently();
     savedEmails = [];
     saveEmails(savedEmails);
@@ -526,6 +634,11 @@ export async function registerRoutes(
       if (client.readyState === WebSocket.OPEN) client.send(kickAllMessage);
     });
     broadcastState();
+    recordAudit({
+      actor: "host",
+      action: "permanent_database_reset",
+      details: `حذف نهائي يدوي لـ ${existingStudents.length} حسابًا`,
+    });
     res.json({ success: true });
   });
 
@@ -538,6 +651,12 @@ export async function registerRoutes(
       
       if (existing) {
         rememberStudent(req, res, existing.id);
+      recordAudit({
+        actor: "student",
+        action: "student_join",
+        target: `student:${existing.id}`,
+        details: `انضمام الطالب ${existing.name} إلى الحصة`,
+      });
         return res.status(200).json(existing);
       }
 
@@ -546,6 +665,12 @@ export async function registerRoutes(
       saveCounters(sessionCounters);
       broadcastState();
       rememberStudent(req, res, student.id);
+    recordAudit({
+      actor: "student",
+      action: "student_join",
+      target: `student:${student.id}`,
+      details: `تسجيل الطالب ${student.name} في الحصة`,
+    });
       res.status(201).json(publicStudent(student));
     } catch (e) {
       res.status(400).json({ message: "Could not join" });

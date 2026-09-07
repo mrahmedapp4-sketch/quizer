@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Database, KeyRound, Plus, Search, Trash2, UserRound } from "lucide-react";
+import { ClipboardList, Database, KeyRound, Plus, Search, Trash2, UserRound } from "lucide-react";
 import { Student } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -7,6 +7,44 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+
+type AuditEntry = {
+  id: number;
+  timestamp: string;
+  actor: "host" | "teacher" | "student" | "system" | "anonymous";
+  action: string;
+  target?: string;
+  details?: string;
+};
+
+const actorLabels: Record<AuditEntry["actor"], string> = {
+  host: "المضيف",
+  teacher: "المدرس",
+  student: "الطالب",
+  system: "النظام",
+  anonymous: "غير معروف",
+};
+
+const actionLabels: Record<string, string> = {
+  host_login: "دخول المضيف",
+  teacher_login: "دخول المدرس",
+  student_login: "دخول طالب",
+  student_google_login: "دخول طالب عبر Google",
+  student_register: "تسجيل حساب",
+  student_join: "انضمام للحصة",
+  student_restore: "إعادة تفعيل حساب",
+  archive_student: "أرشفة طالب",
+  archive_all_students: "أرشفة كل الطلاب",
+  add_points: "تعديل النقاط",
+  change_student_password: "تغيير كلمة المرور",
+  reset_points: "تصفير النقاط",
+  permanent_database_reset: "حذف نهائي لقاعدة البيانات",
+  add_student_photo: "تحديث صورة طالب",
+  toggle_accuracy: "تغيير عرض الدقة",
+  set_answer: "تحديد إجابة السؤال",
+  toggle_accepting_answers: "تغيير استقبال الإجابات",
+  reset_quiz: "بدء سؤال جديد",
+};
 
 export default function StudentDatabasePanel({ onStudentsChanged }: { onStudentsChanged?: () => void }) {
   const { toast } = useToast();
@@ -16,12 +54,18 @@ export default function StudentDatabasePanel({ onStudentsChanged }: { onStudents
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(true);
   const [resetting, setResetting] = useState(false);
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
 
   const refresh = async () => {
-    const response = await fetch("/api/teacher/students", { credentials: "include" });
-    if (!response.ok) throw new Error("تعذر تحميل قاعدة بيانات الطلاب");
-    const data = await response.json();
-    setStudents(Array.isArray(data) ? data : []);
+    const [studentsResponse, auditResponse] = await Promise.all([
+      fetch("/api/teacher/students", { credentials: "include" }),
+      fetch("/api/host/audit-log?limit=200", { credentials: "include" }),
+    ]);
+    if (!studentsResponse.ok) throw new Error("تعذر تحميل قاعدة بيانات الطلاب");
+    if (!auditResponse.ok) throw new Error("تعذر تحميل سجل العمليات");
+    const [studentsData, auditData] = await Promise.all([studentsResponse.json(), auditResponse.json()]);
+    setStudents(Array.isArray(studentsData) ? studentsData : []);
+    setAuditEntries(Array.isArray(auditData) ? auditData : []);
   };
 
   useEffect(() => {
@@ -138,6 +182,38 @@ export default function StudentDatabasePanel({ onStudentsChanged }: { onStudents
           </table>
         </div>
         <p className="mt-4 text-xs text-zinc-500">كلمات المرور لا تظهر؛ يمكن للمضيف تعيين كلمة مرور جديدة فقط.</p>
+      </section>
+
+      <section className="lg:col-span-12 bg-zinc-950/90 backdrop-blur-xl rounded-3xl p-6 border border-sky-400/20 shadow-xl" dir="rtl">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="p-3 rounded-2xl bg-sky-400/10 text-sky-300"><ClipboardList className="w-6 h-6" /></div>
+          <div>
+            <h2 className="text-xl font-bold text-white">سجل عمليات المضيف</h2>
+            <p className="text-sm text-zinc-400">سجل دائم لآخر العمليات الإدارية وتسجيلات الدخول</p>
+          </div>
+        </div>
+        <div className="overflow-x-auto rounded-2xl border border-white/10">
+          <table className="w-full text-right min-w-[760px]">
+            <thead className="bg-white/5">
+              <tr className="border-b border-white/10 text-xs text-zinc-400">
+                <th className="p-4">الوقت</th><th className="p-4">الفاعل</th><th className="p-4">العملية</th><th className="p-4">التفاصيل</th>
+              </tr>
+            </thead>
+            <tbody>
+              {auditEntries.map((entry) => (
+                <tr key={entry.id} className="border-b border-white/5 last:border-0 hover:bg-white/5">
+                  <td className="p-4 text-xs text-zinc-400 whitespace-nowrap">
+                    {new Intl.DateTimeFormat("ar-EG", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.timestamp))}
+                  </td>
+                  <td className="p-4 text-sm font-bold text-sky-200">{actorLabels[entry.actor] ?? entry.actor}</td>
+                  <td className="p-4 text-sm text-white">{actionLabels[entry.action] ?? entry.action}</td>
+                  <td className="p-4 text-sm text-zinc-300">{entry.details || "—"}</td>
+                </tr>
+              ))}
+              {auditEntries.length === 0 && <tr><td colSpan={4} className="p-10 text-center text-zinc-500">لا توجد عمليات مسجلة بعد</td></tr>}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <Dialog open={passwordStudent !== null} onOpenChange={(open) => !open && setPasswordStudent(null)}>

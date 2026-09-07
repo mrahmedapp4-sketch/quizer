@@ -10,6 +10,7 @@ export interface IStorage {
   getStudent(id: number): Promise<Student | undefined>;
   getStudentByEmail?(email: string): Promise<Student | undefined>;
   getStudentByUsername?(username: string): Promise<Student | undefined>;
+  restoreStudent(id: number): Promise<Student>;
   updateStudentScore(id: number, score: number): Promise<Student>;
   updateStudentPassword(id: number, passwordHash: string): Promise<Student>;
   updateStudentAnswer(id: number, answer: string, isCorrect: boolean, responseTime?: string, isRetry?: boolean): Promise<Student>;
@@ -89,12 +90,12 @@ export class MemStorage implements IStorage {
   }
 
   async getStudentByEmail(email: string): Promise<Student | undefined> {
-    return Array.from(this.students.values()).find(s => !s.archivedAt && s.email?.toLowerCase() === email.toLowerCase());
+    return Array.from(this.students.values()).find(s => s.email?.toLowerCase() === email.toLowerCase());
   }
 
   async getStudentByUsername(username: string): Promise<Student | undefined> {
     const normalized = username.trim().toLowerCase();
-    return Array.from(this.students.values()).find(s => !s.archivedAt && s.username?.toLowerCase() === normalized);
+    return Array.from(this.students.values()).find(s => s.username?.toLowerCase() === normalized);
   }
 
   async updateStudentScore(id: number, score: number): Promise<Student> {
@@ -198,6 +199,16 @@ export class MemStorage implements IStorage {
       }
     }
     this.persistStudents();
+  }
+
+  async restoreStudent(id: number): Promise<Student> {
+    const student = this.students.get(id);
+    if (!student) throw new Error("Student not found");
+    if (!student.archivedAt) return student;
+    const updated = { ...student, archivedAt: null, updatedAt: new Date().toISOString() };
+    this.students.set(id, updated);
+    this.persistStudents();
+    return updated;
   }
 
   async deleteStudentPermanently(id: number): Promise<void> {
