@@ -267,6 +267,17 @@ export default function TeacherDashboard() {
                 <RefreshCw className="w-5 h-5" />
                 تصفير كل النقاط
               </button>
+               <button
+                 onClick={() => {
+                   if (confirm("هل تريد إخفاء الطلاب من الحصة الحالية؟ الحسابات والنقاط ستظل محفوظة في قاعدة البيانات.")) {
+                     apiRequest("DELETE", "/api/students").then(() => refetch());
+                   }
+                 }}
+                 className="px-6 py-3 rounded-xl font-bold bg-red-100 text-red-700 hover:bg-red-200 border-b-4 border-red-200 flex items-center gap-2 transition-all shadow-md active:translate-y-0.5"
+               >
+                 <Trash2 className="w-5 h-5" />
+                 إخفاء طلاب الحصة
+               </button>
               </div>
 
             <Dialog>
@@ -616,6 +627,7 @@ export default function TeacherDashboard() {
                       <th className="p-3 text-gray-400">النتيجة</th>
                       {showAccuracy && <th className="p-3 text-gray-400 text-center">الدقة</th>}
                       <th className="p-3 text-gray-400 text-center">النقاط</th>
+                       <th className="p-3 text-gray-400 text-center">إخفاء من الحصة</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -680,6 +692,19 @@ export default function TeacherDashboard() {
                               {student.score}
                             </span>
                           </div>
+                        </td>
+                        <td className="p-3 text-center">
+                          <button
+                            onClick={() => {
+                              if (confirm(`هل تريد إخفاء ${student.name} من الحصة؟ الحساب والنقاط سيظلان محفوظين.`)) {
+                                apiRequest("DELETE", `/api/students/${student.id}`).then(() => refetch());
+                              }
+                            }}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="إخفاء الطالب من الحصة مع الاحتفاظ بالحساب والنقاط"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
                         </td>
                       </tr>
                       );

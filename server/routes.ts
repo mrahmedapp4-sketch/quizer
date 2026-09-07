@@ -344,12 +344,10 @@ export async function registerRoutes(
     res.json({ success: true, showAccuracy: quizState.showAccuracy });
   });
 
-  app.delete("/api/students/:id", requireHost, async (req, res) => {
+  // Hiding a student from the current session is reversible archiving.
+  // It must never reset the student's saved score or account data.
+  app.delete("/api/students/:id", requireMonitor, async (req, res) => {
     const id = parseInt(req.params.id);
-    const student = await storage.getStudent(id);
-    if (student) {
-      await storage.updateStudentScore(id, 0);
-    }
     await storage.deleteStudent(id);
     
     // Notify the specific student to logout/kick
@@ -364,9 +362,8 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  app.delete("/api/students", requireHost, async (req, res) => {
-    // Reset all scores before deleting
-    // await storage.resetAllStudents();
+  app.delete("/api/students", requireMonitor, async (req, res) => {
+    // Archive students for this session only; scores and accounts remain saved.
     await storage.deleteAllStudents();
     sessionCounters.deleteAllCount++;
     saveCounters(sessionCounters);
