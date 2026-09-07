@@ -157,6 +157,12 @@ function requireMonitor(req: any, res: any, next: any) {
   return res.status(401).json({ message: "يجب تسجيل دخول المضيف أو المدرس" });
 }
 
+function requireHost(req: any, res: any, next: any) {
+  const staffRole = readStaffAuthToken(getCookie(req, STAFF_AUTH_COOKIE));
+  if (req.session?.hostAuthenticated === true || staffRole === "host") return next();
+  return res.status(403).json({ message: "هذا الإجراء متاح للمضيف فقط" });
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -338,7 +344,7 @@ export async function registerRoutes(
     res.json({ success: true, showAccuracy: quizState.showAccuracy });
   });
 
-  app.delete("/api/students/:id", requireMonitor, async (req, res) => {
+  app.delete("/api/students/:id", requireHost, async (req, res) => {
     const id = parseInt(req.params.id);
     const student = await storage.getStudent(id);
     if (student) {
@@ -358,7 +364,7 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  app.delete("/api/students", requireMonitor, async (req, res) => {
+  app.delete("/api/students", requireHost, async (req, res) => {
     // Reset all scores before deleting
     // await storage.resetAllStudents();
     await storage.deleteAllStudents();
@@ -505,7 +511,7 @@ export async function registerRoutes(
     res.json({ success: true, student: publicStudent(updated) });
   });
 
-  app.delete("/api/teacher/reset-database", requireMonitor, async (_req, res) => {
+  app.delete("/api/teacher/reset-database", requireHost, async (_req, res) => {
     await storage.deleteAllStudentsPermanently();
     savedEmails = [];
     saveEmails(savedEmails);
