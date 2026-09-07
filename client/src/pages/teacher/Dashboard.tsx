@@ -378,7 +378,7 @@ export default function TeacherDashboard() {
 
                         {/* Rest of students */}
                         {rest.length > 0 && (
-                          <div className="px-6 pt-4 pb-2 space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 px-6 pt-4 pb-2">
                             {rest.map((student, i) => {
                               const rank = i + 4;
                               const acc = student.totalAnswers > 0
@@ -390,7 +390,7 @@ export default function TeacherDashboard() {
                                   initial={{ opacity: 0, x: 20 }}
                                   animate={{ opacity: 1, x: 0 }}
                                   transition={{ delay: 0.35 + i * 0.04 }}
-                                  className="flex items-center gap-3 bg-white/5 hover:bg-white/10 rounded-2xl px-4 py-3 border border-white/5 transition-colors"
+                                  className="flex items-center gap-2 bg-white/5 hover:bg-white/10 rounded-xl px-3 py-2 border border-white/5 transition-colors"
                                 >
                                   <span className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white/60 shrink-0">
                                     {rank}
@@ -468,7 +468,7 @@ export default function TeacherDashboard() {
                   </AlertDialogDescription>
                 </div>
 
-                <div className="px-5 py-4 space-y-2" dir="rtl">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 px-5 py-4" dir="rtl">
                   {students.length > 0 ? (
                     [...students]
                       .sort((a, b) => b.score - a.score)
@@ -477,7 +477,7 @@ export default function TeacherDashboard() {
                         const acc = s.totalAnswers > 0 ? Math.round((s.correctAnswersCount / s.totalAnswers) * 100) : null;
                         return (
                           <div key={s.id} className={cn(
-                            "flex items-center gap-3 px-4 py-3 rounded-2xl border",
+                            "flex items-center gap-2 px-3 py-2 rounded-xl border",
                             idx === 0 ? "bg-yellow-400/10 border-yellow-400/30" :
                             idx === 1 ? "bg-zinc-400/10 border-zinc-400/20" :
                             idx === 2 ? "bg-orange-400/10 border-orange-400/20" :
