@@ -46,6 +46,7 @@ export type QuizState = {
 export type WsMessage = 
   | { type: 'STATE_UPDATE'; payload: QuizState }
   | { type: 'STUDENTS_UPDATE'; payload: Student[] }
+  | { type: 'LEADERBOARD_UPDATE'; payload: Student[] }
   | { type: 'STUDENT_RESULT'; payload: { correct: boolean; message: string } }
   | { type: 'KICK_STUDENT'; payload: { studentId: number } }
   | { type: 'KICK_ALL'; payload: {} }

@@ -108,6 +108,31 @@ export default function StudentDashboard() {
     return () => window.clearInterval(syncInterval);
   }, [setLocation]);
 
+  useEffect(() => {
+    let mounted = true;
+    const syncLeaderboard = async () => {
+      try {
+        const response = await fetch("/api/students/leaderboard", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const students = await response.json();
+        if (mounted) {
+          setLeaderboard([...students].sort((a, b) => b.score - a.score));
+        }
+      } catch {
+        // WebSocket updates continue to provide the live leaderboard.
+      }
+    };
+    syncLeaderboard();
+    const leaderboardInterval = window.setInterval(syncLeaderboard, 2000);
+    return () => {
+      mounted = false;
+      window.clearInterval(leaderboardInterval);
+    };
+  }, []);
+
   const logout = async () => {
     await fetch("/api/student/logout", { method: "POST", credentials: "include" }).catch(() => {});
     localStorage.removeItem("studentId");
@@ -269,10 +294,11 @@ export default function StudentDashboard() {
     });
 
     // We can also listen to general student updates to catch our own score updates
+    onMessage("LEADERBOARD_UPDATE", (students) => {
+      setLeaderboard([...students].sort((a, b) => b.score - a.score));
+    });
+
     onMessage("STUDENTS_UPDATE", (students) => {
-      const sorted = [...students].sort((a, b) => b.score - a.score);
-      setLeaderboard(sorted);
-      
       const me = students.find(s => String(s.id) === localStorage.getItem("studentId"));
       if (me) {
         setScore(me.score);
@@ -588,7 +614,7 @@ export default function StudentDashboard() {
                       <h3 className="text-white text-xl font-bold">Class Leaderboard</h3>
                     </div>
                     <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                      {leaderboard.slice(0, 5).map((student, idx) => (
+                      {leaderboard.map((student, idx) => (
                         <div 
                           key={student.id} 
                           className={cn(
@@ -600,7 +626,14 @@ export default function StudentDashboard() {
                         >
                           <div className="flex items-center gap-3">
                             <span className="w-6 h-6 rounded-full bg-black/20 flex items-center justify-center text-[10px] opacity-70">#{idx + 1}</span>
-                            <span>{student.name}</span>
+                           <div className="flex items-center gap-2">
+                             <span>{student.name}</span>
+                             {student.archivedAt && (
+                               <span className="text-[10px] text-amber-300/80 border border-amber-300/30 rounded-full px-2 py-0.5">
+                                 مؤرشف
+                               </span>
+                             )}
+                           </div>
                           </div>
                           <span className="font-mono text-primary">{student.score} pts</span>
                         </div>

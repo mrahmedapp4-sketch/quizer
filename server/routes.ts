@@ -235,6 +235,8 @@ export async function registerRoutes(
     broadcast({ type: "STATE_UPDATE", payload: publicState });
     const students = await storage.getStudents();
     broadcast({ type: "STUDENTS_UPDATE", payload: students.map(publicStudent) });
+    const leaderboardStudents = await storage.getAllStudents();
+    broadcast({ type: "LEADERBOARD_UPDATE", payload: leaderboardStudents.map(publicStudent) });
     broadcast({ type: "COUNTERS_UPDATE", payload: sessionCounters });
   };
 
@@ -249,6 +251,9 @@ export async function registerRoutes(
     ws.send(JSON.stringify({ type: "COUNTERS_UPDATE", payload: sessionCounters }));
     storage.getStudents().then((students) => {
       ws.send(JSON.stringify({ type: "STUDENTS_UPDATE", payload: students.map(publicStudent) }));
+    });
+    storage.getAllStudents().then((students) => {
+      ws.send(JSON.stringify({ type: "LEADERBOARD_UPDATE", payload: students.map(publicStudent) }));
     });
   });
 
@@ -873,6 +878,14 @@ export async function registerRoutes(
 
   app.get(api.students.list.path, async (req, res) => {
     const students = await storage.getStudents();
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.json(students.map(publicStudent));
+  });
+
+  app.get("/api/students/leaderboard", async (_req, res) => {
+    const students = await storage.getAllStudents();
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
