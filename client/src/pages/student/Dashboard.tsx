@@ -328,10 +328,26 @@ export default function StudentDashboard() {
   const confirmAnswer = () => {
     unlockAudio();
     resetRefresh();
-    if (studentId && selectedAnswer) {
-      const timeTaken = ((Date.now() - (startTime || Date.now())) / 1000).toFixed(3);
-      submit.mutate({ id: parseInt(studentId), answer: selectedAnswer, responseTime: timeTaken, isRetry });
+    const currentStudentId = studentId ?? localStorage.getItem("studentId");
+    if (!currentStudentId || !selectedAnswer) {
+      toast({
+        title: "تعذر إرسال الإجابة",
+        description: "اختر إجابة ثم حاول مرة أخرى",
+        variant: "destructive",
+      });
+      return;
     }
+    const parsedStudentId = Number.parseInt(currentStudentId, 10);
+    if (!Number.isFinite(parsedStudentId)) {
+      toast({
+        title: "تعذر إرسال الإجابة",
+        description: "جلسة الطالب غير صالحة، أعد تسجيل الدخول",
+        variant: "destructive",
+      });
+      return;
+    }
+    const timeTaken = ((Date.now() - (startTime || Date.now())) / 1000).toFixed(3);
+    submit.mutate({ id: parsedStudentId, answer: selectedAnswer, responseTime: timeTaken, isRetry });
   };
 
   const handleRetry = () => {
@@ -626,8 +642,9 @@ export default function StudentDashboard() {
         {/* Submit Button - Always Visible */}
         <div className="w-full px-1 sm:px-2 mt-4">
           <AnimatePresence>
-            {selectedAnswer && !result && isAccepting && (
+            {selectedAnswer && !result && (
               <motion.button
+                type="button"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
