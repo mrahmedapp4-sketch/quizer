@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useSocket } from "@/hooks/use-socket";
 import { useStudentSubmit } from "@/hooks/use-students";
@@ -49,12 +49,20 @@ export default function StudentDashboard() {
   const [isRetry, setIsRetry] = useState(false);
   const [hasRetried, setHasRetried] = useState(false);
   const [questionId, setQuestionId] = useState(0);
+  const isRetryRef = useRef(isRetry);
+  const resultRef = useRef(result);
+  const lastResultSyncKey = useRef<string | null>(null);
 
   const resetRefresh = () => {};
   const [teacherHasAnswer, setTeacherHasAnswer] = useState(false);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
+
+  useEffect(() => {
+    isRetryRef.current = isRetry;
+    resultRef.current = result;
+  }, [isRetry, result]);
 
   useEffect(() => {
     if (isAccepting && !selectedAnswer && !result) {
@@ -207,10 +215,13 @@ export default function StudentDashboard() {
       // Reset local state if quiz resets or new question starts
       if (state.isAcceptingAnswers && !state.correctAnswer) {
         setResult(null);
+        resultRef.current = null;
         setSelectedAnswer(null);
         setShowLeaderboard(false);
         setIsRetry(false);
+        isRetryRef.current = false;
         setHasRetried(false);
+        lastResultSyncKey.current = null;
       }
     });
 
@@ -275,7 +286,10 @@ export default function StudentDashboard() {
         }
         
         // Also sync result state if we reconnected
-        if (me.lastAnswer && me.isCorrect !== null && !isRetry) {
+        if (me.lastAnswer && me.isCorrect !== null && !isRetryRef.current) {
+          const resultKey = `${me.id}:${me.updatedAt ?? ""}:${me.lastAnswer}:${me.isCorrect}`;
+          if (lastResultSyncKey.current === resultKey || resultRef.current) return;
+          lastResultSyncKey.current = resultKey;
           const randomMessage = me.isCorrect 
             ? correctMessages[Math.floor(Math.random() * correctMessages.length)]
             : wrongMessages[Math.floor(Math.random() * wrongMessages.length)];
@@ -286,8 +300,10 @@ export default function StudentDashboard() {
           });
           setSelectedAnswer(me.lastAnswer);
         } else if (!me.lastAnswer) {
+          lastResultSyncKey.current = null;
           setSelectedAnswer(null);
           setResult(null);
+          resultRef.current = null;
         }
       }
     });
@@ -328,8 +344,10 @@ export default function StudentDashboard() {
       return;
     }
     setResult(null);
+    resultRef.current = null;
     setSelectedAnswer(null);
     setIsRetry(true);
+    isRetryRef.current = true;
     setHasRetried(true);
     if (questionId > 0) localStorage.setItem(`hasRetried:${questionId}`, "true");
   };

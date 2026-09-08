@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type WsMessage } from "@shared/schema";
 
 export function useSocket() {
@@ -63,7 +63,7 @@ export function useSocket() {
     };
   }, []);
 
-  const onMessage = <T extends WsMessage['type']>(
+  const onMessage = useCallback(<T extends WsMessage['type']>(
     type: T,
     callback: (payload: Extract<WsMessage, { type: T }>['payload']) => void
   ) => {
@@ -71,7 +71,7 @@ export function useSocket() {
     if (lastMessages.current.has(type)) {
       callback(lastMessages.current.get(type));
     }
-  };
+  }, []);
 
   return { socket, isConnected, onMessage };
 }
