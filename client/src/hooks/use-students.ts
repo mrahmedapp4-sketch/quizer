@@ -71,11 +71,14 @@ export function useStudentsList() {
   return useQuery({
     queryKey: ["students"],
     queryFn: async () => {
-      const res = await fetch(api.students.list.path, { credentials: "include" });
+      const res = await fetch(api.students.list.path, {
+        credentials: "include",
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error("Failed to fetch students");
       return api.students.list.responses[200].parse(await res.json());
     },
-    refetchInterval: 2000,
+    refetchInterval: 1000,
     refetchIntervalInBackground: true,
   });
 }
