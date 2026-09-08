@@ -73,12 +73,15 @@ export default function StudentDashboard() {
       setName(storedName);
     }
 
-    fetch("/api/student/me", { credentials: "include" })
-      .then(async (response) => {
+    let firstSync = true;
+    const syncStudent = async () => {
+      try {
+        const response = await fetch("/api/student/me", {
+          credentials: "include",
+          cache: "no-store",
+        });
         if (!response.ok) throw new Error("not signed in");
-        return response.json();
-      })
-      .then((student) => {
+        const student = await response.json();
         setStudentId(String(student.id));
         setName(student.name);
         setGrade(student.grade ?? null);
@@ -86,10 +89,15 @@ export default function StudentDashboard() {
         setSessionScore(student.sessionScore ?? 0);
         localStorage.setItem("studentId", String(student.id));
         localStorage.setItem("studentName", student.name);
-      })
-      .catch(() => {
-        if (!storedId || !storedName) setLocation("/student/join");
-      });
+      } catch {
+        if (firstSync && (!storedId || !storedName)) setLocation("/student/join");
+      } finally {
+        firstSync = false;
+      }
+    };
+    syncStudent();
+    const syncInterval = window.setInterval(syncStudent, 2000);
+    return () => window.clearInterval(syncInterval);
   }, [setLocation]);
 
   const logout = async () => {
@@ -398,17 +406,7 @@ export default function StudentDashboard() {
               {grade && <span className="text-[10px] text-gray-400">{grade === "third_secondary" ? "تالتة ثانوي" : "تانية ثانوي"}</span>}
             </div>
           </div>
-          {/* Right: total and current-session scores */}
-          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-            <div className="flex flex-col items-end bg-primary/10 px-2.5 py-1.5 rounded-xl border border-primary/20 text-primary font-bold">
-              <span className="text-[10px] text-primary/70">إجمالي النقاط</span>
-              <span className="text-sm">{score}</span>
-            </div>
-            <div className="flex flex-col items-end bg-yellow-500/10 px-2.5 py-1.5 rounded-xl border border-yellow-500/20 text-yellow-400 font-bold">
-              <FlaskConical className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span className="text-[10px] text-yellow-400/70">نقاط الحصة</span>
-              <span className="text-sm">{sessionScore}</span>
-            </div>
+          <div className="shrink-0">
             <button onClick={logout} title="تسجيل الخروج" className="p-2 rounded-xl text-gray-500 hover:text-white hover:bg-white/10">
               <LogOut className="w-4 h-4" />
             </button>
@@ -455,6 +453,19 @@ export default function StudentDashboard() {
           </div>
         )}
       </header>
+
+      <section className="grid grid-cols-2 gap-3 max-w-2xl mx-auto w-full mb-5 z-10" dir="rtl">
+        <div className="rounded-2xl border border-primary/30 bg-primary/15 px-4 py-3 text-center shadow-lg shadow-primary/10">
+          <div className="text-xs sm:text-sm font-bold text-primary/80">إجمالي النقاط</div>
+          <div className="text-3xl sm:text-4xl font-black text-white mt-1">{score}</div>
+          <div className="text-[11px] text-primary/70">رصيد الحساب بالكامل</div>
+        </div>
+        <div className="rounded-2xl border border-yellow-400/30 bg-yellow-400/15 px-4 py-3 text-center shadow-lg shadow-yellow-400/10">
+          <div className="text-xs sm:text-sm font-bold text-yellow-300/90">نقاط الحصة الحالية</div>
+          <div className="text-3xl sm:text-4xl font-black text-white mt-1">{sessionScore}</div>
+          <div className="text-[11px] text-yellow-300/70">النقاط المكتسبة في هذه الحصة</div>
+        </div>
+      </section>
 
       {/* Main Game Area */}
       <main className="flex-1 flex flex-col items-center justify-center max-w-2xl mx-auto w-full z-10 px-0 sm:px-4">
