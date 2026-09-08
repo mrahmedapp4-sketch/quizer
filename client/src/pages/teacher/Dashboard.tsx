@@ -137,7 +137,7 @@ export default function TeacherDashboard() {
   const confirmEndSession = async () => {
     resetRefresh();
     // Clear all answers first to reset state
-    await apiRequest("POST", "/api/teacher/reset");
+    await apiRequest("POST", "/api/teacher/reset", { endSession: true });
     toast({
       title: "تم إنهاء الحصة",
       description: "تم إنهاء الحصة مع الاحتفاظ بحسابات الطلاب ونقاطهم",

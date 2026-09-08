@@ -11,11 +11,12 @@ export interface IStorage {
   getStudentByEmail?(email: string): Promise<Student | undefined>;
   getStudentByUsername?(username: string): Promise<Student | undefined>;
   restoreStudent(id: number): Promise<Student>;
-  updateStudentScore(id: number, score: number): Promise<Student>;
+  updateStudentScore(id: number, score: number, sessionScore?: number): Promise<Student>;
   updateStudentPassword(id: number, passwordHash: string): Promise<Student>;
   updateStudentAnswer(id: number, answer: string, isCorrect: boolean, responseTime?: string, isRetry?: boolean): Promise<Student>;
   updateStudentAnswerWithStreak(id: number, answer: string, isCorrect: boolean, responseTime?: string, isRetry?: boolean, newConsecutive?: number): Promise<Student>;
   resetAllStudents(): Promise<void>;
+  resetSessionScores(): Promise<void>;
   clearAnswersOnly(): Promise<void>;
   deleteStudent(id: number): Promise<void>;
   deleteAllStudents(): Promise<void>;
@@ -46,6 +47,7 @@ export class MemStorage implements IStorage {
       isCorrect?: boolean | null;
       responseTime?: string | null;
       passwordHash?: string | null;
+      sessionScore?: number;
       createdAt?: string | null;
       updatedAt?: string | null;
       archivedAt?: string | null;
@@ -60,6 +62,7 @@ export class MemStorage implements IStorage {
       grade: source.grade ?? null,
       passwordHash: source.passwordHash ?? null,
       score: source.score ?? 0,
+      sessionScore: source.sessionScore ?? 0,
       lastAnswer: source.lastAnswer ?? null,
       isCorrect: source.isCorrect ?? null,
       responseTime: source.responseTime ?? null,
@@ -82,26 +85,35 @@ export class MemStorage implements IStorage {
   }
 
   async getAllStudents(): Promise<Student[]> {
+    this.loadStudents();
     return Array.from(this.students.values()).sort((a, b) => a.id - b.id);
   }
 
   async getStudent(id: number): Promise<Student | undefined> {
+    this.loadStudents();
     return this.students.get(id);
   }
 
   async getStudentByEmail(email: string): Promise<Student | undefined> {
+    this.loadStudents();
     return Array.from(this.students.values()).find(s => s.email?.toLowerCase() === email.toLowerCase());
   }
 
   async getStudentByUsername(username: string): Promise<Student | undefined> {
+    this.loadStudents();
     const normalized = username.trim().toLowerCase();
     return Array.from(this.students.values()).find(s => s.username?.toLowerCase() === normalized);
   }
 
-  async updateStudentScore(id: number, score: number): Promise<Student> {
+  async updateStudentScore(id: number, score: number, sessionScore?: number): Promise<Student> {
     const student = this.students.get(id);
     if (!student) throw new Error("Student not found");
-    const updated = { ...student, score, updatedAt: new Date().toISOString() };
+    const updated = {
+      ...student,
+      score,
+      sessionScore: sessionScore ?? student.sessionScore + (score - student.score),
+      updatedAt: new Date().toISOString(),
+    };
     this.students.set(id, updated);
     this.persistStudents();
     return updated;
@@ -157,12 +169,24 @@ export class MemStorage implements IStorage {
       this.students.set(id, { 
         ...student, 
         score: 0, 
+        sessionScore: 0,
         lastAnswer: null, 
         isCorrect: null,
         responseTime: null,
         consecutiveCorrect: 0,
         totalAnswers: 0,
         correctAnswersCount: 0,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    this.persistStudents();
+  }
+
+  async resetSessionScores(): Promise<void> {
+    for (const [id, student] of this.students.entries()) {
+      this.students.set(id, {
+        ...student,
+        sessionScore: 0,
         updatedAt: new Date().toISOString(),
       });
     }
@@ -245,15 +269,17 @@ export class MemStorage implements IStorage {
       if (!existsSync(this.studentsFile)) return;
       const saved = JSON.parse(readFileSync(this.studentsFile, "utf8")) as Student[];
       if (!Array.isArray(saved)) return;
+      const loadedStudents = new Map<number, Student>();
       for (const student of saved) {
         if (!student || typeof student.id !== "number") continue;
-        this.students.set(student.id, {
+        loadedStudents.set(student.id, {
           ...student,
           email: student.email ?? null,
           username: student.username ?? null,
           grade: student.grade ?? null,
           passwordHash: (student as any).passwordHash ?? null,
           score: student.score ?? 0,
+           sessionScore: (student as any).sessionScore ?? 0,
           lastAnswer: student.lastAnswer ?? null,
           isCorrect: student.isCorrect ?? null,
           responseTime: student.responseTime ?? null,
@@ -265,6 +291,7 @@ export class MemStorage implements IStorage {
           archivedAt: (student as any).archivedAt ?? null,
         });
       }
+      this.students = loadedStudents;
       const ids = Array.from(this.students.keys());
       this.currentId = ids.length ? Math.max(...ids) + 1 : 1;
     } catch (error) {

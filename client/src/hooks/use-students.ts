@@ -44,6 +44,7 @@ export function useStudentSubmit() {
       const url = api.students.submit.path.replace(":id", String(id));
       const res = await fetch(url, {
         method: api.students.submit.method,
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answer, responseTime, isRetry }),
       });
@@ -70,9 +71,11 @@ export function useStudentsList() {
   return useQuery({
     queryKey: ["students"],
     queryFn: async () => {
-      const res = await fetch(api.students.list.path);
+      const res = await fetch(api.students.list.path, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch students");
       return api.students.list.responses[200].parse(await res.json());
     },
+    refetchInterval: 2000,
+    refetchIntervalInBackground: true,
   });
 }

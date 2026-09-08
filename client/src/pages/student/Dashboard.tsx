@@ -39,16 +39,16 @@ export default function StudentDashboard() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isAccepting, setIsAccepting] = useState(false);
   const [customChoices, setCustomChoices] = useState<string[] | null>(null);
-  const [result, setResult] = useState<{ correct: boolean; message: string; doublePoints?: boolean; newScore?: number } | null>(null);
+  const [result, setResult] = useState<{ correct: boolean; message: string; doublePoints?: boolean; newScore?: number; newSessionScore?: number } | null>(null);
   const [score, setScore] = useState(0);
+  const [sessionScore, setSessionScore] = useState(0);
   const [totalAnswers, setTotalAnswers] = useState(0);
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
   const [streak, setStreak] = useState(0);
   const [showAccuracy, setShowAccuracy] = useState(true);
   const [isRetry, setIsRetry] = useState(false);
-  const [hasRetried, setHasRetried] = useState(() => {
-    return localStorage.getItem("hasRetried") === "true";
-  });
+  const [hasRetried, setHasRetried] = useState(false);
+  const [questionId, setQuestionId] = useState(0);
 
   const resetRefresh = () => {};
   const [teacherHasAnswer, setTeacherHasAnswer] = useState(false);
@@ -82,6 +82,8 @@ export default function StudentDashboard() {
         setStudentId(String(student.id));
         setName(student.name);
         setGrade(student.grade ?? null);
+        setScore(student.score ?? 0);
+        setSessionScore(student.sessionScore ?? 0);
         localStorage.setItem("studentId", String(student.id));
         localStorage.setItem("studentName", student.name);
       })
@@ -94,7 +96,6 @@ export default function StudentDashboard() {
     await fetch("/api/student/logout", { method: "POST", credentials: "include" }).catch(() => {});
     localStorage.removeItem("studentId");
     localStorage.removeItem("studentName");
-    localStorage.removeItem("hasRetried");
     setLocation("/student/join");
   };
 
@@ -190,6 +191,7 @@ export default function StudentDashboard() {
       setIsAccepting(state.isAcceptingAnswers);
       setTeacherHasAnswer(!!state.correctAnswer);
       setCustomChoices(state.customChoices);
+      if (typeof state.questionId === "number") setQuestionId(state.questionId);
       if (typeof state.showAccuracy === "boolean") setShowAccuracy(state.showAccuracy);
       if (state.correctAnswer && !selectedAnswer && !result) {
         setStartTime(Date.now());
@@ -201,7 +203,6 @@ export default function StudentDashboard() {
         setShowLeaderboard(false);
         setIsRetry(false);
         setHasRetried(false);
-        localStorage.removeItem("hasRetried");
       }
     });
 
@@ -228,7 +229,7 @@ export default function StudentDashboard() {
         playWrong();
       }
       
-      const resultPayload = payload as typeof payload & { doublePoints?: boolean; newScore?: number };
+       const resultPayload = payload as typeof payload & { doublePoints?: boolean; newScore?: number; newSessionScore?: number };
       if (resultPayload.doublePoints) {
         playStreak();
         toast({
@@ -256,6 +257,7 @@ export default function StudentDashboard() {
       const me = students.find(s => String(s.id) === localStorage.getItem("studentId"));
       if (me) {
         setScore(me.score);
+         setSessionScore(me.sessionScore ?? 0);
         setTotalAnswers(me.totalAnswers ?? 0);
         setCorrectAnswersCount(me.correctAnswersCount ?? 0);
         setStreak(me.consecutiveCorrect ?? 0);
@@ -265,7 +267,7 @@ export default function StudentDashboard() {
         }
         
         // Also sync result state if we reconnected
-        if (me.lastAnswer && me.isCorrect !== null) {
+        if (me.lastAnswer && me.isCorrect !== null && !isRetry) {
           const randomMessage = me.isCorrect 
             ? correctMessages[Math.floor(Math.random() * correctMessages.length)]
             : wrongMessages[Math.floor(Math.random() * wrongMessages.length)];
@@ -309,12 +311,47 @@ export default function StudentDashboard() {
   };
 
   const handleRetry = () => {
+    if (!isAccepting) {
+      toast({
+        variant: "destructive",
+        title: "المحاولة الثانية غير متاحة الآن",
+        description: "انتظر حتى يفتح المدرس استقبال الإجابات",
+      });
+      return;
+    }
     setResult(null);
     setSelectedAnswer(null);
     setIsRetry(true);
     setHasRetried(true);
-    localStorage.setItem("hasRetried", "true");
+    if (questionId > 0) localStorage.setItem(`hasRetried:${questionId}`, "true");
   };
+
+  useEffect(() => {
+    if (questionId <= 0) return;
+    setHasRetried(localStorage.getItem(`hasRetried:${questionId}`) === "true");
+  }, [questionId]);
+
+  useEffect(() => {
+    const response = submit.data as {
+      correct?: boolean;
+      message?: string;
+      doublePoints?: boolean;
+      newScore?: number;
+      newSessionScore?: number;
+    } | undefined;
+    if (!response) return;
+    if (typeof response.newScore === "number") setScore(response.newScore);
+    if (typeof response.newSessionScore === "number") setSessionScore(response.newSessionScore);
+    if (typeof response.correct === "boolean" && typeof response.message === "string") {
+      setResult({
+        correct: response.correct,
+        message: response.message,
+        doublePoints: response.doublePoints,
+        newScore: response.newScore,
+        newSessionScore: response.newSessionScore,
+      });
+    }
+  }, [submit.data]);
 
   if (!name) return null;
 
@@ -361,11 +398,16 @@ export default function StudentDashboard() {
               {grade && <span className="text-[10px] text-gray-400">{grade === "third_secondary" ? "تالتة ثانوي" : "تانية ثانوي"}</span>}
             </div>
           </div>
-          {/* Right: score (always visible) */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="flex items-center gap-1.5 bg-yellow-500/10 px-3 py-2 rounded-xl border border-yellow-500/20 text-yellow-400 font-bold text-sm">
+          {/* Right: total and current-session scores */}
+          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+            <div className="flex flex-col items-end bg-primary/10 px-2.5 py-1.5 rounded-xl border border-primary/20 text-primary font-bold">
+              <span className="text-[10px] text-primary/70">إجمالي النقاط</span>
+              <span className="text-sm">{score}</span>
+            </div>
+            <div className="flex flex-col items-end bg-yellow-500/10 px-2.5 py-1.5 rounded-xl border border-yellow-500/20 text-yellow-400 font-bold">
               <FlaskConical className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span>{score} pts</span>
+              <span className="text-[10px] text-yellow-400/70">نقاط الحصة</span>
+              <span className="text-sm">{sessionScore}</span>
             </div>
             <button onClick={logout} title="تسجيل الخروج" className="p-2 rounded-xl text-gray-500 hover:text-white hover:bg-white/10">
               <LogOut className="w-4 h-4" />

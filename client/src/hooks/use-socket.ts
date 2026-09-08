@@ -5,6 +5,7 @@ export function useSocket() {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const listeners = useRef<Map<string, (payload: any) => void>>(new Map());
+  const lastMessages = useRef<Map<string, any>>(new Map());
   const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectDelay = useRef(1000);
   const unmounted = useRef(false);
@@ -42,6 +43,7 @@ export function useSocket() {
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data) as WsMessage;
+          lastMessages.current.set(message.type, message.payload);
           const listener = listeners.current.get(message.type);
           if (listener) {
             listener(message.payload);
@@ -66,6 +68,9 @@ export function useSocket() {
     callback: (payload: Extract<WsMessage, { type: T }>['payload']) => void
   ) => {
     listeners.current.set(type, callback);
+    if (lastMessages.current.has(type)) {
+      callback(lastMessages.current.get(type));
+    }
   };
 
   return { socket, isConnected, onMessage };

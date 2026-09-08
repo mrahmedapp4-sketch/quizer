@@ -104,6 +104,7 @@ let quizState = {
   isAcceptingAnswers: true,
   correctAnswer: null as string | null,
   customChoices: null as string[] | null,
+  questionId: 1,
   answerStartTime: 0,
   showAccuracy: true,
 };
@@ -330,7 +331,11 @@ export async function registerRoutes(
         if (isCorrect !== student.isCorrect) {
              await storage.updateStudentAnswer(student.id, student.lastAnswer, isCorrect);
              if (isCorrect) {
-                 await storage.updateStudentScore(student.id, newScore);
+                  await storage.updateStudentScore(
+                    student.id,
+                    newScore,
+                    student.sessionScore + (newScore - student.score),
+                  );
              }
         }
       }
@@ -359,13 +364,16 @@ export async function registerRoutes(
 
   app.post("/api/teacher/reset", requireTeacher, async (req, res) => {
     // Reset student answers but keep scores
+    const endSession = req.body?.endSession === true;
     await storage.clearAnswersOnly(); // This clears only lastAnswer and isCorrect
     sessionCounters.nextQuestionCount++;
     saveCounters(sessionCounters);
+    quizState.questionId++;
     quizState.correctAnswer = null;
     quizState.customChoices = null;
     quizState.isAcceptingAnswers = true;
     quizState.answerStartTime = 0;
+    if (endSession) await storage.resetSessionScores();
     recordAudit({ actor: getRequestActor(req), action: "reset_quiz", details: "بدء سؤال جديد مع الاحتفاظ بالنقاط" });
     broadcastState();
     res.json({ success: true });
@@ -377,6 +385,7 @@ export async function registerRoutes(
     quizState.customChoices = null;
     quizState.isAcceptingAnswers = true;
     quizState.answerStartTime = 0;
+    quizState.questionId++;
     recordAudit({ actor: getRequestActor(req), action: "reset_points", details: "تصفير نقاط الطلاب النشطين" });
     broadcastState();
     res.json({ success: true });
@@ -559,13 +568,15 @@ export async function registerRoutes(
     const student = await storage.getStudent(id);
     if (!student || student.archivedAt) return res.status(404).json({ message: "Student not found" });
     
-    const newScore = student.score + (parseInt(points) || 0);
-    await storage.updateStudentScore(id, newScore);
+    const pointsChange = parseInt(points) || 0;
+    const newScore = student.score + pointsChange;
+    const newSessionScore = student.sessionScore + pointsChange;
+    await storage.updateStudentScore(id, newScore, newSessionScore);
     recordAudit({
       actor: getRequestActor(req),
       action: "add_points",
       target: `student:${id}`,
-      details: `تغيير النقاط بمقدار ${parseInt(points) || 0} إلى ${newScore}`,
+      details: `تغيير النقاط بمقدار ${pointsChange} إلى ${newScore}`,
     });
     broadcastState();
     res.json({ success: true, newScore });
@@ -586,7 +597,11 @@ export async function registerRoutes(
     }
     const student = await storage.getStudent(id);
     if (!student || student.archivedAt) return res.status(404).json({ message: "الطالب غير موجود أو مؤرشف" });
-    const updated = await storage.updateStudentScore(id, student.score + points);
+    const updated = await storage.updateStudentScore(
+      id,
+      student.score + points,
+      student.sessionScore + points,
+    );
     recordAudit({
       actor: getRequestActor(req),
       action: "add_points",
@@ -823,17 +838,19 @@ export async function registerRoutes(
     }
     
     let newScore = student.score + pointsChange;
+    let newSessionScore = student.sessionScore + pointsChange;
     let newConsecutive = isCorrect ? student.consecutiveCorrect + 1 : 0;
 
     // Every 4th consecutive correct answer = double points, then streak resets to 0
     if (isCorrect && newConsecutive === 4) {
         pointsChange = pointsChange * 2;
         newScore = student.score + pointsChange;
+        newSessionScore = student.sessionScore + pointsChange;
         doublePoints = true;
         newConsecutive = 0; // reset after double so next cycle starts fresh
     }
 
-    await storage.updateStudentScore(studentId, newScore);
+    await storage.updateStudentScore(studentId, newScore, newSessionScore);
     await storage.updateStudentAnswerWithStreak(studentId, answer, isCorrect, serverDuration, isRetry, newConsecutive);
     
     broadcastState();
@@ -846,7 +863,8 @@ export async function registerRoutes(
       correct: isCorrect,
       message: randomMessage,
       doublePoints,
-      newScore
+      newScore,
+      newSessionScore,
     });
   });
 

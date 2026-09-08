@@ -10,6 +10,7 @@ export const students = pgTable("students", {
   passwordHash: text("password_hash"),
   email: text("email"),
   score: integer("score").default(0).notNull(),
+  sessionScore: integer("session_score").default(0).notNull(),
   lastAnswer: text("last_answer"),
   isCorrect: boolean("is_correct"),
   responseTime: text("response_time"),
@@ -37,6 +38,7 @@ export type QuizState = {
   isAcceptingAnswers: boolean;
   correctAnswer: string | null;
   customChoices: string[] | null;
+  questionId: number;
   showAccuracy: boolean;
 };
 
